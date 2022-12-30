@@ -1,4 +1,4 @@
-use crate::instructions::{Immediate8, Instr, RdRmImm5, Reg};
+use crate::instructions::{Args, FullInstr, Immediate5, Instr, RdRmImm5, Reg};
 use crate::utils::Appliable;
 use nom::bytes::complete::tag_no_case;
 use nom::character::complete::{char, space0};
@@ -19,7 +19,7 @@ fn parse_rm_rd_imm5(input: &str) -> IResult<&str, RdRmImm5> {
         tuple((
             preceded(parse_separator, parse_register),
             preceded(parse_separator, parse_register),
-            preceded(parse_separator, parse_immediate8bits),
+            preceded(parse_separator, parse_immediate5bits),
         )),
         RdRmImm5.make_appliable(),
     )(input)
@@ -32,10 +32,10 @@ fn parse_register(input: &str) -> IResult<&str, Reg> {
     )(input)
 }
 
-fn parse_immediate8bits(input: &str) -> IResult<&str, Immediate8> {
+fn parse_immediate5bits(input: &str) -> IResult<&str, Immediate5> {
     map(
         preceded(char('#'), map_res(digit1, str::parse::<u8>)),
-        Immediate8,
+        Immediate5,
     )(input)
 }
 
@@ -43,19 +43,34 @@ fn parse_separator(input: &str) -> IResult<&str, &str> {
     preceded(opt(char(',')), space0)(input)
 }
 
-fn parse_lsls(input: &str) -> IResult<&str, Instr> {
-    map(preceded(tag_no_case("lsls"), parse_rm_rd_imm5), Instr::Lsls)(input)
+fn parse_lsls(input: &str) -> IResult<&str, FullInstr> {
+    map(preceded(tag_no_case("lsls"), parse_rm_rd_imm5), |args| {
+        FullInstr {
+            instr: Instr::Lsls,
+            args: Args::RdRmImm5(args),
+        }
+    })(input)
 }
 
-fn parse_lsrs(input: &str) -> IResult<&str, Instr> {
-    map(preceded(tag_no_case("lsrs"), parse_rm_rd_imm5), Instr::Lsrs)(input)
+fn parse_lsrs(input: &str) -> IResult<&str, FullInstr> {
+    map(preceded(tag_no_case("lsrs"), parse_rm_rd_imm5), |args| {
+        FullInstr {
+            instr: Instr::Lsrs,
+            args: Args::RdRmImm5(args),
+        }
+    })(input)
 }
 
-fn parse_asrs(input: &str) -> IResult<&str, Instr> {
-    map(preceded(tag_no_case("asrs"), parse_rm_rd_imm5), Instr::Asrs)(input)
+fn parse_asrs(input: &str) -> IResult<&str, FullInstr> {
+    map(preceded(tag_no_case("asrs"), parse_rm_rd_imm5), |args| {
+        FullInstr {
+            instr: Instr::Asrs,
+            args: Args::RdRmImm5(args),
+        }
+    })(input)
 }
 
-pub fn parse_instr_line(input: &str) -> IResult<&str, Instr> {
+pub fn parse_instr_line(input: &str) -> IResult<&str, FullInstr> {
     alt((parse_lsls, parse_lsrs, parse_asrs))(input)
 }
 
@@ -67,7 +82,10 @@ mod tests {
     fn lsls() {
         let input = "lsls r0, r1, #4";
         let res = parse_instr_line(input).unwrap();
-        let expected = Instr::Lsls(RdRmImm5(Reg::R0, Reg::R1, Immediate8(4)));
+        let expected = FullInstr {
+            instr: Instr::Lsls,
+            args: Args::RdRmImm5(RdRmImm5(Reg::R0, Reg::R1, Immediate5(4))),
+        };
         assert_eq!(res.1, expected);
     }
 
@@ -75,7 +93,10 @@ mod tests {
     fn lsrs() {
         let input = "lsrs r2, r5, #9";
         let res = parse_instr_line(input).unwrap();
-        let expected = Instr::Lsrs(RdRmImm5(Reg::R2, Reg::R5, Immediate8(9)));
+        let expected = FullInstr {
+            instr: Instr::Lsrs,
+            args: Args::RdRmImm5(RdRmImm5(Reg::R2, Reg::R5, Immediate5(9))),
+        };
         assert_eq!(res.1, expected);
     }
 
@@ -83,7 +104,10 @@ mod tests {
     fn asrs() {
         let input = "asrs r3, r7, #15";
         let res = parse_instr_line(input).unwrap();
-        let expected = Instr::Asrs(RdRmImm5(Reg::R3, Reg::R7, Immediate8(15)));
+        let expected = FullInstr {
+            instr: Instr::Asrs,
+            args: Args::RdRmImm5(RdRmImm5(Reg::R3, Reg::R7, Immediate5(15))),
+        };
         assert_eq!(res.1, expected);
     }
 
