@@ -1,6 +1,6 @@
 #[allow(clippy::unusual_byte_groupings)]
 
-trait ToBinary {
+pub trait ToBinary {
     fn to_binary(&self) -> BitVec<u8, Msb0>;
 }
 use crate::instructions::*;
@@ -34,11 +34,21 @@ impl ToBinary for RdRmImm5 {
     }
 }
 
+fn binary_bit_count(instr: &Instr) -> u8 {
+    match instr {
+        Instr::Lsls => 5,
+        Instr::Lsrs => 5,
+        Instr::Asrs => 5,
+        Instr::B => 8,
+    }
+}
+
 impl ToBinary for Instr {
     fn to_binary(&self) -> BitVec<u8, Msb0> {
         let val = *self as u8;
-        let mut bits = BitVec::<u8, Msb0>::with_capacity(5);
-        bits.resize(5, false);
+        let bit_count = binary_bit_count(self) as usize;
+        let mut bits = BitVec::<u8, Msb0>::with_capacity(bit_count);
+        bits.resize(bit_count, false);
         bits.store(val);
         bits
     }
@@ -51,6 +61,10 @@ impl ToBinary for FullInstr {
             Args::RdRmImm5(args) => {
                 bits.extend_from_bitslice(&args.to_binary());
             }
+            Args::Immediate8(args) => {
+                bits.extend_from_bitslice(args.0.view_bits::<Msb0>());
+            }
+            Args::Label(_) => panic!("Label not resolved"),
         }
         bits
     }
@@ -99,6 +113,19 @@ mod tests {
             0, 0, 1, 1, 1, // Imm5
             0, 1, 1, // Rm
             1, 0, 0, // Rd
+        ];
+        assert_eq!(instr.to_binary(), expected);
+    }
+
+    #[test]
+    fn branch() {
+        let instr = FullInstr {
+            instr: Instr::B,
+            args: Args::Immediate8(Immediate8(0b0000_0010)),
+        };
+        let expected = bits![
+            1, 1, 0, 1, 1, 1, 1, 0, // B
+            0, 0, 0, 0, 0, 0, 1, 0 // Imm8
         ];
         assert_eq!(instr.to_binary(), expected);
     }

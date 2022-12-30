@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 #[derive(PartialEq, Debug, Copy, Clone)]
 #[repr(u8)]
 pub enum Reg {
@@ -46,6 +48,9 @@ pub struct Immediate3(pub u8);
 pub struct Immediate5(pub u8);
 
 #[derive(PartialEq, Debug, Copy, Clone)]
+pub struct Immediate8(pub u8);
+
+#[derive(PartialEq, Debug, Copy, Clone)]
 pub struct Immediate11(pub u16);
 
 #[derive(PartialEq, Debug, Copy, Clone)]
@@ -57,17 +62,36 @@ pub enum Instr {
     Lsls = 0,
     Lsrs = 1,
     Asrs = 2,
+    B = 0b1101_1110,
 }
 
-#[derive(PartialEq, Debug, Copy, Clone)]
+#[derive(PartialEq, Debug, Clone)]
 pub enum Args {
     RdRmImm5(RdRmImm5),
+    Label(String),
+    Immediate8(Immediate8),
 }
 
-#[derive(PartialEq, Debug, Copy, Clone)]
+#[derive(PartialEq, Debug, Clone)]
 pub struct FullInstr {
     pub instr: Instr,
     pub args: Args,
+}
+
+pub type LabelLookup = HashMap<String, usize>;
+
+impl FullInstr {
+    pub fn complete(&self, labels: &LabelLookup) -> Result<FullInstr, ()> {
+        let mut copy = self.clone();
+        if let Args::Label(ref label) = self.args {
+            if let Some(&addr) = labels.get(label) {
+                copy.args = Args::Immediate8(Immediate8(addr as u8));
+            } else {
+                return Err(());
+            }
+        }
+        Ok(copy)
+    }
 }
 
 #[derive(PartialEq, Debug, Clone)]

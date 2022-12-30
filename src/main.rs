@@ -1,4 +1,6 @@
+mod emitter;
 mod instructions;
+mod logic;
 mod parser;
 mod utils;
 
