@@ -17,29 +17,25 @@ impl TryFrom<u8> for Reg {
     type Error = ();
 
     fn try_from(value: u8) -> Result<Self, Self::Error> {
-        if value == Reg::R0 as u8 {
-            Ok(Reg::R0)
-        } else if value == Reg::R1 as u8 {
-            Ok(Reg::R1)
-        } else if value == Reg::R2 as u8 {
-            Ok(Reg::R2)
-        } else if value == Reg::R3 as u8 {
-            Ok(Reg::R3)
-        } else if value == Reg::R4 as u8 {
-            Ok(Reg::R4)
-        } else if value == Reg::R5 as u8 {
-            Ok(Reg::R5)
-        } else if value == Reg::R6 as u8 {
-            Ok(Reg::R6)
-        } else if value == Reg::R7 as u8 {
-            Ok(Reg::R7)
-        } else if value == Reg::PC as u8 {
-            Ok(Reg::PC)
-        } else if value == Reg::SP as u8 {
-            Ok(Reg::SP)
-        } else {
-            Err(())
+        for &reg in [
+            Reg::R0,
+            Reg::R1,
+            Reg::R2,
+            Reg::R3,
+            Reg::R4,
+            Reg::R5,
+            Reg::R6,
+            Reg::R7,
+            Reg::PC,
+            Reg::SP,
+        ]
+        .iter()
+        {
+            if reg as u8 == value {
+                return Ok(reg);
+            }
         }
+        Err(())
     }
 }
 
