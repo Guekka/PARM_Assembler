@@ -73,5 +73,6 @@ pub struct FullInstr {
 #[derive(PartialEq, Debug, Clone)]
 pub enum ParsedLine {
     Instr(FullInstr),
+    Label(String),
     None,
 }

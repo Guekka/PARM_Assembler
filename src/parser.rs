@@ -1,11 +1,11 @@
 use crate::instructions::{Args, FullInstr, Immediate5, Instr, ParsedLine, RdRmImm5, Reg};
 use crate::utils::Appliable;
-use nom::bytes::complete::{tag_no_case, take_till};
+use nom::bytes::complete::{tag_no_case, take_till, take_while};
 use nom::character::complete::{char, line_ending, space0};
 use nom::combinator::{map_res, value};
 use nom::error::VerboseError;
 use nom::multi::many1;
-use nom::sequence::{preceded, terminated};
+use nom::sequence::{delimited, preceded, terminated};
 use nom::{
     branch::alt,
     character::complete::digit1,
@@ -81,7 +81,15 @@ pub fn parse_comment(input: &str) -> IResult<&str, &str, Err> {
 }
 
 pub fn parse_end_of_line(input: &str) -> IResult<&str, (), Err> {
-    terminated(value((), take_till(|c| c == '\n')), line_ending)(input)
+    terminated(value((), space0), line_ending)(input)
+}
+
+fn parse_label(input: &str) -> IResult<&str, &str, Err> {
+    delimited(
+        char('.'),
+        take_while(|c: char| c.is_alphanumeric()),
+        char(':'),
+    )(input)
 }
 
 pub fn parse_line(input: &str) -> IResult<&str, ParsedLine, Err> {
@@ -90,11 +98,14 @@ pub fn parse_line(input: &str) -> IResult<&str, ParsedLine, Err> {
     }
     terminated(
         alt((
+            map(preceded(space0, parse_label), |s| {
+                ParsedLine::Label(s.to_owned())
+            }),
             map(preceded(space0, parse_instr), ParsedLine::Instr),
             value(ParsedLine::None, parse_comment),
             value(ParsedLine::None, space0),
         )),
-        terminated(opt(parse_comment), opt(parse_end_of_line)),
+        opt(parse_end_of_line),
     )(input)
 }
 
@@ -216,5 +227,51 @@ mod tests {
             Ok((_, lines)) => assert_eq!(expected, lines.as_slice()),
             Err(e) => panic!("Error: {}", convert_error(input, e)),
         }
+    }
+
+    #[test]
+    fn parse_label() {
+        let input = ".label:";
+        let expected = ParsedLine::Label("label".to_owned());
+        let res = parse_line(input).unwrap();
+        assert_eq!(expected, res.1);
+    }
+
+    #[test]
+    fn parse_label_with_comment() {
+        let input = ".label: @ comment";
+        let expected = ParsedLine::Label("label".to_owned());
+        let res = parse_line(input).unwrap();
+        assert_eq!(expected, res.1);
+    }
+
+    #[test]
+    fn parse_lines_with_label() {
+        let input = "
+            .label: lsls r0, r1, #4
+            @ comment
+            lsrs r2, r5, #9 @comment
+            .label2:
+            asrs r3, r7, #15           
+            
+            ";
+        let expected = &[
+            ParsedLine::Label("label".to_owned()),
+            ParsedLine::Instr(FullInstr {
+                instr: Instr::Lsls,
+                args: Args::RdRmImm5(RdRmImm5(Reg::R0, Reg::R1, Immediate5(4))),
+            }),
+            ParsedLine::Instr(FullInstr {
+                instr: Instr::Lsrs,
+                args: Args::RdRmImm5(RdRmImm5(Reg::R2, Reg::R5, Immediate5(9))),
+            }),
+            ParsedLine::Label("label2".to_owned()),
+            ParsedLine::Instr(FullInstr {
+                instr: Instr::Asrs,
+                args: Args::RdRmImm5(RdRmImm5(Reg::R3, Reg::R7, Immediate5(15))),
+            }),
+        ];
+        let res = parse_lines(input).unwrap();
+        assert_eq!(expected, res.1.as_slice())
     }
 }
