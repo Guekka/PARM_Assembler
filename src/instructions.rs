@@ -30,7 +30,6 @@ impl TryFrom<u8> for Reg {
             5 => Ok(Reg::R5),
             6 => Ok(Reg::R6),
             7 => Ok(Reg::R7),
-            8 => Ok(Reg::SP),
             _ => Err(()),
         }
     }
@@ -42,4 +41,6 @@ pub struct RdRmImm5(pub Reg, pub Reg, pub Immediate8);
 #[derive(PartialEq, Debug)]
 pub enum Instr {
     Lsls(RdRmImm5),
+    Lsrs(RdRmImm5),
+    Asrs(RdRmImm5),
 }
