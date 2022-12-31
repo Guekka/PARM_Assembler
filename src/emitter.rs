@@ -40,6 +40,20 @@ fn binary_bit_count(instr: &Instr) -> u8 {
         Instr::Lsrs => 5,
         Instr::Asrs => 5,
         Instr::B => 8,
+        Instr::Beq => 8,
+        Instr::Bne => 8,
+        Instr::Bcs => 8,
+        Instr::Bcc => 8,
+        Instr::Bmi => 8,
+        Instr::Bpl => 8,
+        Instr::Bvs => 8,
+        Instr::Bvc => 8,
+        Instr::Bhi => 8,
+        Instr::Bls => 8,
+        Instr::Bge => 8,
+        Instr::Blt => 8,
+        Instr::Bgt => 8,
+        Instr::Ble => 8,
     }
 }
 
