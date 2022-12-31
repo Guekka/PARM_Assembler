@@ -46,7 +46,7 @@ mod tests {
         })];
 
         let program = make_program(instrs).unwrap();
-        assert_eq!(program, vec![0b00001_00101_000_001]);
+        assert_eq!(program, vec![0b00001_00101_001_000]);
     }
 
     #[test]
@@ -83,9 +83,9 @@ mod tests {
         assert_eq!(
             program,
             vec![
-                0b00001_00101_000_001,
+                0b00001_00101_001_000,
                 0b11011110_00000011, // b to label at line 3
-                0b00000_00010_100_101,
+                0b00000_00010_101_100,
                 0b11011110_00000000 // b to label at line 0
             ]
         );

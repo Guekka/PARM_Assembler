@@ -17,6 +17,19 @@ impl ToBinary for Reg {
     }
 }
 
+fn imm_to_binary<const N: u8>(val: u8) -> BitVec<u8, Msb0> {
+    let mut bits = BitVec::<u8, Msb0>::new();
+    bits.resize((N) as usize, false);
+    bits.store(val);
+    bits
+}
+
+impl ToBinary for Immediate3 {
+    fn to_binary(&self) -> BitVec<u8, Msb0> {
+        imm_to_binary::<3>(self.0)
+    }
+}
+
 impl ToBinary for Immediate5 {
     fn to_binary(&self) -> BitVec<u8, Msb0> {
         let val = self.0;
@@ -28,6 +41,7 @@ impl ToBinary for RdRmImm5 {
     fn to_binary(&self) -> BitVec<u8, Msb0> {
         let mut bits = BitVec::<u8, Msb0>::new();
         bits.extend_from_bitslice(&self.2.to_binary());
+        bits.extend_from_bitslice(&self.1.to_binary());
         bits.extend_from_bitslice(&self.0.to_binary());
         bits.extend_from_bitslice(&self.1.to_binary());
         bits
@@ -105,7 +119,7 @@ mod tests {
     #[test]
     fn rd_rm_imm5_to_binary() {
         let args = RdRmImm5(Reg::R3, Reg::R4, Immediate5(7));
-        let expected = bits![0, 0, 1, 1, 1, 0, 1, 1, 1, 0, 0];
+        let expected = bits![0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1];
         assert_eq!(args.to_binary(), expected);
     }
 
@@ -125,8 +139,8 @@ mod tests {
         let expected = bits![
             0, 0, 0, 0, 0, // Lsls
             0, 0, 1, 1, 1, // Imm5
-            0, 1, 1, // Rm
-            1, 0, 0, // Rd
+            1, 0, 0, // Rm
+            0, 1, 1, // Rd
         ];
         assert_eq!(instr.to_binary(), expected);
     }

@@ -15,14 +15,14 @@ use nom::{
 
 type Err<'a> = VerboseError<&'a str>;
 
-fn parse_rm_rd_imm5(input: &str) -> IResult<&str, Args, Err> {
+fn parse_rd_rm_imm5(input: &str) -> IResult<&str, Args, Err> {
     map(
         tuple((
             preceded(parse_separator, parse_register),
             preceded(parse_separator, parse_register),
             preceded(parse_separator, parse_immediate5bits),
         )),
-        |(rm, rd, imm5)| Args::RdRmImm5(RdRmImm5(rm, rd, imm5)),
+        |(rd, rm, imm5)| Args::RdRmImm5(RdRmImm5(rd, rm, imm5)),
     )(input)
 }
 
