@@ -40,15 +40,14 @@ impl TryFrom<u8> for Reg {
         Err(())
     }
 }
-
-#[derive(PartialEq, Debug, Copy, Clone)]
-pub struct Immediate3(pub u8);
-
 #[derive(PartialEq, Debug, Copy, Clone)]
 pub struct Immediate5(pub u8);
 
 #[derive(PartialEq, Debug, Copy, Clone)]
 pub struct Immediate8(pub u8);
+
+#[derive(PartialEq, Debug, Copy, Clone)]
+pub struct Immediate3(pub u8);
 
 #[derive(PartialEq, Debug, Copy, Clone)]
 pub struct Immediate11(pub u16);
@@ -57,11 +56,25 @@ pub struct Immediate11(pub u16);
 pub struct RdRmImm5(pub Reg, pub Reg, pub Immediate5);
 
 #[derive(PartialEq, Debug, Copy, Clone)]
+pub struct RdRnRm(pub Reg, pub Reg, pub Reg);
+
+#[derive(PartialEq, Debug, Copy, Clone)]
+pub struct RdRnImm3(pub Reg, pub Reg, pub Immediate3);
+
+#[derive(PartialEq, Debug, Copy, Clone)]
+pub struct RdImm8(pub Reg, pub Immediate8);
+
+#[derive(PartialEq, Debug, Copy, Clone)]
 #[repr(u8)]
 pub enum Instr {
     Lsls = 0,
     Lsrs = 1,
     Asrs = 2,
+    Adds = 12,
+    Subs = 13,
+    Adds2 = 14,
+    Subs2 = 15,
+    Movs = 4,
     Beq = 0b1101_0000,
     Bne = 0b1101_0001,
     Bcs = 0b1101_0010,
@@ -85,6 +98,11 @@ impl Instr {
             Instr::Lsls => "lsls",
             Instr::Lsrs => "lsrs",
             Instr::Asrs => "asrs",
+            Instr::Adds => "adds",
+            Instr::Subs => "subs",
+            Instr::Adds2 => "adds",
+            Instr::Subs2 => "subs",
+            Instr::Movs => "movs",
             Instr::B => "b",
             Instr::Beq => "beq",
             Instr::Bne => "bne",
@@ -109,6 +127,9 @@ pub enum Args {
     RdRmImm5(RdRmImm5),
     Label(String),
     Immediate8(Immediate8),
+    RdRnRm(RdRnRm),
+    RdRnImm3(RdRnImm3),
+    RdImm8(RdImm8),
 }
 
 #[derive(PartialEq, Debug, Clone)]
