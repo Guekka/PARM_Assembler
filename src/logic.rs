@@ -15,7 +15,7 @@ pub fn calculate_labels(instrs: &[ParsedLine]) -> LabelLookup {
         .collect()
 }
 
-pub fn make_program(instrs: Vec<ParsedLine>) -> Result<Vec<u16>, ()> {
+pub fn make_program(instrs: Vec<ParsedLine>) -> Result<Vec<u16>, String> {
     let labels = calculate_labels(&instrs);
 
     instrs
@@ -24,10 +24,15 @@ pub fn make_program(instrs: Vec<ParsedLine>) -> Result<Vec<u16>, ()> {
             ParsedLine::Instr(i) => Some(i),
             _ => None,
         })
+        .inspect(|i| println!("0: {:?}", i))
         .map(|i| i.complete(&labels))
+        .inspect(|i| println!("1: {:?}", i))
         .map(|r| r.map(|i| i.to_binary()))
+        .inspect(|r| println!("2: {:?}", r))
         .map(|r| r.map(|b| b.load_be::<u16>()))
-        .collect()
+        .inspect(|r| println!("3: {:?}", r))
+        .collect::<Result<Vec<u16>, ()>>()
+        .map_err(|_| "Error".to_owned())
 }
 
 #[cfg(test)]
