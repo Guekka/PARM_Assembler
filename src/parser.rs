@@ -1,6 +1,6 @@
 use crate::instructions::{
-    Args, FullInstr, Immediate3, Immediate5, Immediate8, Instr, ParsedLine, RdImm8, RdRmImm5,
-    RdRnImm3, RdRnRm, Reg,
+    Args, FullInstr, Immediate3, Immediate5, Immediate7W, Immediate8, Instr, ParsedLine, RdImm8,
+    RdRmImm5, RdRnImm3, RdRnRm, Reg,
 };
 use nom::bytes::complete::{tag_no_case, take_till, take_while};
 use nom::character::complete::{char, line_ending, space0};
@@ -61,6 +61,12 @@ fn parse_rd_imm8(input: &str) -> IResult<&str, Args, Err> {
     )(input)
 }
 
+fn parse_imm7(input: &str) -> IResult<&str, Args, Err> {
+    map(preceded(parse_separator, parse_immediate7bits), |imm7| {
+        Args::Immediate7W(imm7)
+    })(input)
+}
+
 fn parse_register(input: &str) -> IResult<&str, Reg, Err> {
     map_res(
         preceded(tag_no_case("r"), map_res(digit1, str::parse::<u8>)),
@@ -72,6 +78,13 @@ fn parse_immediate5bits(input: &str) -> IResult<&str, Immediate5, Err> {
     map(
         preceded(char('#'), map_res(digit1, str::parse::<u8>)),
         Immediate5,
+    )(input)
+}
+
+fn parse_immediate7bits(input: &str) -> IResult<&str, Immediate7W, Err> {
+    map(
+        preceded(char('#'), map_res(digit1, str::parse::<u8>)),
+        Immediate7W,
     )(input)
 }
 
@@ -107,7 +120,7 @@ fn parse_separator(input: &str) -> IResult<&str, &str, Err> {
     preceded(opt(char(',')), space0)(input)
 }
 
-const INSTRUCTIONS: &[(Instr, fn(&str) -> IResult<&str, Args, Err>); 23] = &[
+const INSTRUCTIONS: &[(Instr, fn(&str) -> IResult<&str, Args, Err>); 25] = &[
     (Instr::Lsls, parse_rd_rm_imm5),
     (Instr::Lsrs, parse_rd_rm_imm5),
     (Instr::Asrs, parse_rd_rm_imm5),
@@ -116,6 +129,8 @@ const INSTRUCTIONS: &[(Instr, fn(&str) -> IResult<&str, Args, Err>); 23] = &[
     (Instr::Adds2, parse_rd_rn_imm3),
     (Instr::Subs2, parse_rd_rn_imm3),
     (Instr::Movs, parse_rd_imm8),
+    (Instr::AddSp, parse_imm7),
+    (Instr::SubSp, parse_imm7),
     (Instr::Beq, parse_label_args),
     (Instr::Bne, parse_label_args),
     (Instr::Bcs, parse_label_args),
@@ -433,6 +448,26 @@ mod tests {
             ParsedLine::Instr(FullInstr {
                 instr: Instr::Adds,
                 args: Args::RdRnRm(RdRnRm(R7, R6, R1)),
+            }),
+        ];
+        let res = parse_lines(input).unwrap();
+        assert_eq!(expected, res.1);
+    }
+
+    #[test]
+    fn addsp() {
+        let input = "
+            add sp, #4
+            sub sp, #100
+        ";
+        let expected: Vec<ParsedLine> = vec![
+            ParsedLine::Instr(FullInstr {
+                instr: Instr::AddSp,
+                args: Args::Immediate7W(Immediate7W(4)),
+            }),
+            ParsedLine::Instr(FullInstr {
+                instr: Instr::SubSp,
+                args: Args::Immediate7W(Immediate7W(100)),
             }),
         ];
         let res = parse_lines(input).unwrap();

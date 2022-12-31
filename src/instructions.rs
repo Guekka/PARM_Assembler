@@ -47,6 +47,9 @@ pub struct Immediate5(pub u8);
 pub struct Immediate8(pub u8);
 
 #[derive(PartialEq, Debug, Copy, Clone)]
+pub struct Immediate7W(pub u8);
+
+#[derive(PartialEq, Debug, Copy, Clone)]
 pub struct Immediate3(pub u8);
 
 #[derive(PartialEq, Debug, Copy, Clone)]
@@ -65,8 +68,9 @@ pub struct RdRnImm3(pub Reg, pub Reg, pub Immediate3);
 pub struct RdImm8(pub Reg, pub Immediate8);
 
 #[derive(PartialEq, Debug, Copy, Clone)]
-#[repr(u8)]
+#[repr(u16)]
 pub enum Instr {
+    // Shift add sub move
     Lsls = 0,
     Lsrs = 1,
     Asrs = 2,
@@ -75,6 +79,9 @@ pub enum Instr {
     Adds2 = 14,
     Subs2 = 15,
     Movs = 4,
+    // Misc
+    AddSp = 0b1011_00000,
+    SubSp = 0b1011_00001,
     Beq = 0b1101_0000,
     Bne = 0b1101_0001,
     Bcs = 0b1101_0010,
@@ -103,6 +110,8 @@ impl Instr {
             Instr::Adds2 => "adds",
             Instr::Subs2 => "subs",
             Instr::Movs => "movs",
+            Instr::AddSp => "add sp",
+            Instr::SubSp => "sub sp",
             Instr::B => "b",
             Instr::Beq => "beq",
             Instr::Bne => "bne",
@@ -130,6 +139,7 @@ pub enum Args {
     RdRnRm(RdRnRm),
     RdRnImm3(RdRnImm3),
     RdImm8(RdImm8),
+    Immediate7W(Immediate7W),
 }
 
 #[derive(PartialEq, Debug, Clone)]

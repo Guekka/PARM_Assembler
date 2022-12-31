@@ -12,7 +12,7 @@ impl ToBinary for Reg {
         let val = *self as u8;
         let mut bits = BitVec::<u8, Msb0>::new();
         bits.resize(3, false);
-        bits.store(val);
+        bits.store_be(val);
         bits
     }
 }
@@ -20,7 +20,7 @@ impl ToBinary for Reg {
 fn imm_to_binary<const N: u8>(val: u8) -> BitVec<u8, Msb0> {
     let mut bits = BitVec::<u8, Msb0>::new();
     bits.resize((N) as usize, false);
-    bits.store(val);
+    bits.store_be(val);
     bits
 }
 
@@ -42,11 +42,17 @@ impl ToBinary for Immediate8 {
     }
 }
 
+impl ToBinary for Immediate7W {
+    fn to_binary(&self) -> BitVec<u8, Msb0> {
+        imm_to_binary::<7>(self.0 / 4)
+    }
+}
+
 impl ToBinary for Immediate11 {
     fn to_binary(&self) -> BitVec<u8, Msb0> {
         let mut bits = BitVec::<u8, Msb0>::new();
         bits.resize(11, false);
-        bits.store(self.0);
+        bits.store_be(self.0);
         bits
     }
 }
@@ -71,6 +77,8 @@ fn binary_bit_count(instr: &Instr) -> u8 {
         Instr::Adds2 => 7,
         Instr::Subs2 => 7,
         Instr::Movs => 3,
+        Instr::AddSp => 9,
+        Instr::SubSp => 9,
         Instr::B => 8,
         Instr::Beq => 8,
         Instr::Bne => 8,
@@ -91,11 +99,11 @@ fn binary_bit_count(instr: &Instr) -> u8 {
 
 impl ToBinary for Instr {
     fn to_binary(&self) -> BitVec<u8, Msb0> {
-        let val = *self as u8;
+        let val = *self as u16;
         let bit_count = binary_bit_count(self) as usize;
         let mut bits = BitVec::<u8, Msb0>::with_capacity(bit_count);
         bits.resize(bit_count, false);
-        bits.store(val);
+        bits.store_be(val);
         bits
     }
 }
@@ -124,6 +132,9 @@ impl ToBinary for FullInstr {
             Args::RdImm8(args) => {
                 bits.extend_from_bitslice(&args.0.to_binary());
                 bits.extend_from_bitslice(&args.1.to_binary());
+            }
+            Args::Immediate7W(args) => {
+                bits.extend_from_bitslice(&args.to_binary());
             }
         }
         bits
@@ -159,6 +170,16 @@ mod tests {
     fn instr_to_binary() {
         let instr = Instr::Lsrs;
         let expected = bits![0, 0, 0, 0, 1];
+        assert_eq!(instr.to_binary(), expected);
+    }
+
+    #[test]
+    fn addsp() {
+        let instr = FullInstr {
+            instr: Instr::AddSp,
+            args: Args::Immediate7W(Immediate7W(4)),
+        };
+        let expected = bits![1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1];
         assert_eq!(instr.to_binary(), expected);
     }
 
