@@ -1,9 +1,8 @@
 use crate::instructions::{Args, FullInstr, Immediate5, Instr, ParsedLine, RdRmImm5, Reg};
-use crate::utils::Appliable;
 use nom::bytes::complete::{tag_no_case, take_till, take_while};
 use nom::character::complete::{char, line_ending, space0};
 use nom::combinator::{map_res, value};
-use nom::error::VerboseError;
+use nom::error::{ErrorKind, ParseError, VerboseError};
 use nom::multi::many1;
 use nom::sequence::{preceded, terminated};
 use nom::{
@@ -16,14 +15,14 @@ use nom::{
 
 type Err<'a> = VerboseError<&'a str>;
 
-fn parse_rm_rd_imm5(input: &str) -> IResult<&str, RdRmImm5, Err> {
+fn parse_rm_rd_imm5(input: &str) -> IResult<&str, Args, Err> {
     map(
         tuple((
             preceded(parse_separator, parse_register),
             preceded(parse_separator, parse_register),
             preceded(parse_separator, parse_immediate5bits),
         )),
-        RdRmImm5.make_appliable(),
+        |(rm, rd, imm5)| Args::RdRmImm5(RdRmImm5(rm, rd, imm5)),
     )(input)
 }
 
@@ -59,61 +58,59 @@ fn parse_separator(input: &str) -> IResult<&str, &str, Err> {
     preceded(opt(char(',')), space0)(input)
 }
 
-fn parse_lsls(input: &str) -> IResult<&str, FullInstr, Err> {
-    map(preceded(tag_no_case("lsls"), parse_rm_rd_imm5), |args| {
-        FullInstr {
-            instr: Instr::Lsls,
-            args: Args::RdRmImm5(args),
-        }
-    })(input)
+const INSTRUCTIONS: &[(Instr, fn(&str) -> IResult<&str, Args, Err>); 18] = &[
+    (Instr::Lsls, parse_rm_rd_imm5),
+    (Instr::Lsrs, parse_rm_rd_imm5),
+    (Instr::Asrs, parse_rm_rd_imm5),
+    (Instr::Beq, parse_label_args),
+    (Instr::Bne, parse_label_args),
+    (Instr::Bcs, parse_label_args),
+    (Instr::Bcc, parse_label_args),
+    (Instr::Bmi, parse_label_args),
+    (Instr::Bpl, parse_label_args),
+    (Instr::Bvs, parse_label_args),
+    (Instr::Bvc, parse_label_args),
+    (Instr::Bhi, parse_label_args),
+    (Instr::Bls, parse_label_args),
+    (Instr::Bge, parse_label_args),
+    (Instr::Blt, parse_label_args),
+    (Instr::Bgt, parse_label_args),
+    (Instr::Ble, parse_label_args),
+    (Instr::B, parse_label_args),
+];
+
+const fn generate_instructions_parser() -> fn(&str) -> IResult<&str, FullInstr, Err> {
+    move |input: &str| {
+        INSTRUCTIONS
+            .iter()
+            .map(|(instr, args_parser)| {
+                map(
+                    tuple((
+                        value(instr, tag_no_case(instr.text_instruction())),
+                        args_parser,
+                    )),
+                    |(instr, args)| FullInstr {
+                        instr: *instr,
+                        args: args,
+                    },
+                )
+            })
+            // we cannot nom::branch::alt here because it requires a tuple
+            // so we manually implement the alt combinator
+            .fold(
+                Err(nom::Err::Error(Err::from_error_kind(input, ErrorKind::Alt))),
+                |acc, mut f| match acc {
+                    Ok((i, o)) => Ok((i, o)),
+                    Err(_) => f(input),
+                },
+            )
+    }
 }
 
-fn parse_lsrs(input: &str) -> IResult<&str, FullInstr, Err> {
-    map(preceded(tag_no_case("lsrs"), parse_rm_rd_imm5), |args| {
-        FullInstr {
-            instr: Instr::Lsrs,
-            args: Args::RdRmImm5(args),
-        }
-    })(input)
-}
-
-fn parse_branch(input: &str) -> IResult<&str, FullInstr, Err> {
-    let tags = alt((
-        value(Instr::Beq, tag_no_case("beq")),
-        value(Instr::Bne, tag_no_case("bne")),
-        value(Instr::Bcs, tag_no_case("bcs")),
-        value(Instr::Bcc, tag_no_case("bcc")),
-        value(Instr::Bmi, tag_no_case("bmi")),
-        value(Instr::Bpl, tag_no_case("bpl")),
-        value(Instr::Bvs, tag_no_case("bvs")),
-        value(Instr::Bvc, tag_no_case("bvc")),
-        value(Instr::Bhi, tag_no_case("bhi")),
-        value(Instr::Bls, tag_no_case("bls")),
-        value(Instr::Bge, tag_no_case("bge")),
-        value(Instr::Blt, tag_no_case("blt")),
-        value(Instr::Bgt, tag_no_case("bgt")),
-        value(Instr::Ble, tag_no_case("ble")),
-        value(Instr::B, tag_no_case("b")),
-    ));
-    let res = map(tuple((tags, parse_label_args)), |(instr, args)| FullInstr {
-        instr,
-        args,
-    })(input);
-
-    res
-}
-
-fn parse_asrs(input: &str) -> IResult<&str, FullInstr, Err> {
-    map(preceded(tag_no_case("asrs"), parse_rm_rd_imm5), |args| {
-        FullInstr {
-            instr: Instr::Asrs,
-            args: Args::RdRmImm5(args),
-        }
-    })(input)
-}
+const PARSE_INSTRUCTION: fn(&str) -> IResult<&str, FullInstr, Err> = generate_instructions_parser();
 
 pub fn parse_instr(input: &str) -> IResult<&str, FullInstr, Err> {
-    alt((parse_lsls, parse_lsrs, parse_asrs, parse_branch))(input)
+    PARSE_INSTRUCTION(input)
 }
 
 pub fn parse_comment(input: &str) -> IResult<&str, &str, Err> {

@@ -79,6 +79,31 @@ pub enum Instr {
     B = 0b1101_1110,
 }
 
+impl Instr {
+    pub const fn text_instruction(&self) -> &'static str {
+        match self {
+            Instr::Lsls => "lsls",
+            Instr::Lsrs => "lsrs",
+            Instr::Asrs => "asrs",
+            Instr::B => "b",
+            Instr::Beq => "beq",
+            Instr::Bne => "bne",
+            Instr::Bcs => "bcs",
+            Instr::Bcc => "bcc",
+            Instr::Bmi => "bmi",
+            Instr::Bpl => "bpl",
+            Instr::Bvs => "bvs",
+            Instr::Bvc => "bvc",
+            Instr::Bhi => "bhi",
+            Instr::Bls => "bls",
+            Instr::Bge => "bge",
+            Instr::Blt => "blt",
+            Instr::Bgt => "bgt",
+            Instr::Ble => "ble",
+        }
+    }
+}
+
 #[derive(PartialEq, Debug, Clone)]
 pub enum Args {
     RdRmImm5(RdRmImm5),
