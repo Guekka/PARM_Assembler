@@ -71,7 +71,7 @@ pub struct RdRnImm3(pub Reg, pub Reg, pub Immediate3);
 pub struct RdImm8(pub Reg, pub Immediate8);
 
 #[derive(PartialEq, Debug, Copy, Clone)]
-pub struct RnRm(pub Reg, pub Reg);
+pub struct TwoRegs(pub Reg, pub Reg);
 
 #[derive(PartialEq, Debug, Copy, Clone)]
 pub struct RdRnImm0(pub Reg, pub Reg);
@@ -92,8 +92,22 @@ pub enum Instr {
     Subs2 = 15,
     Movs = 4,
     // Data processing
-    Cmp = 0b010000_1010,
+    Ands = 0b010000_0000,
+    Eors = 0b010000_0001,
+    Lsls2 = 0b010000_0010,
+    Lsrs2 = 0b010000_0011,
+    Asrs2 = 0b010000_0100,
+    Adcs = 0b010000_0101,
+    Sbcs = 0b010000_0110,
+    Rors = 0b010000_0111,
+    Tst = 0b010000_1000,
     Rsbs = 0b010000_1001,
+    Cmp = 0b010000_1010,
+    Cmn = 0b010000_1011,
+    Orrs = 0b010000_1100,
+    Muls = 0b010000_1101,
+    Bics = 0b010000_1110,
+    Mvns = 0b010000_1111,
     // Load / Store
     Str = 0b1001_0,
     Ldr = 0b1001_1,
@@ -133,8 +147,22 @@ impl Instr {
             Instr::Ldr => "ldr",
             Instr::AddSp => "add sp",
             Instr::SubSp => "sub sp",
-            Instr::Cmp => "cmp",
+            Instr::Ands => "ands",
+            Instr::Eors => "eors",
+            Instr::Lsls2 => "lsls",
+            Instr::Lsrs2 => "lsrs",
+            Instr::Asrs2 => "asrs",
+            Instr::Adcs => "adcs",
+            Instr::Sbcs => "sbcs",
+            Instr::Rors => "rors",
+            Instr::Tst => "tst",
             Instr::Rsbs => "rsbs",
+            Instr::Cmp => "cmp",
+            Instr::Cmn => "cmn",
+            Instr::Orrs => "orrs",
+            Instr::Muls => "muls",
+            Instr::Bics => "bics",
+            Instr::Mvns => "mvns",
             Instr::B => "b",
             Instr::Beq => "beq",
             Instr::Bne => "bne",
@@ -165,7 +193,7 @@ pub enum Args {
     RdImm8(RdImm8),
     Immediate7W(Immediate7W),
     Immediate11(Immediate11),
-    RnRm(RnRm),
+    TwoRegs(TwoRegs),
     RdRnImm0(RdRnImm0),
     RtSpImm8W(RtSpImm8W),
 }

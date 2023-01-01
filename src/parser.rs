@@ -1,6 +1,6 @@
 use crate::instructions::{
     Args, FullInstr, Immediate3, Immediate5, Immediate7W, Immediate8, Immediate8W, Instr,
-    ParsedLine, RdImm8, RdRmImm5, RdRnImm0, RdRnImm3, RdRnRm, Reg, RnRm, RtSpImm8W,
+    ParsedLine, RdImm8, RdRmImm5, RdRnImm0, RdRnImm3, RdRnRm, Reg, RtSpImm8W, TwoRegs,
 };
 use nom::bytes::complete::{tag_no_case, take_till, take_while};
 use nom::character::complete::{char, line_ending, space0};
@@ -67,13 +67,30 @@ fn parse_imm7(input: &str) -> IResult<&str, Args, Err> {
     })(input)
 }
 
-fn parse_rmrn(input: &str) -> IResult<&str, Args, Err> {
+fn parse_two_regs(input: &str) -> IResult<&str, Args, Err> {
     map(
         tuple((
             preceded(parse_separator, parse_register),
             preceded(parse_separator, parse_register),
         )),
-        |(rm, rn)| Args::RnRm(RnRm(rm, rn)),
+        |(r1, r2)| Args::TwoRegs(TwoRegs(r1, r2)),
+    )(input)
+}
+
+fn parse_rdm_rn_rdm(input: &str) -> IResult<&str, Args, Err> {
+    map_opt(
+        tuple((
+            preceded(parse_separator, parse_register),
+            preceded(parse_separator, parse_register),
+            preceded(parse_separator, parse_register),
+        )),
+        |(r1, r2, r1_)| {
+            if r1 == r1_ {
+                Some(Args::TwoRegs(TwoRegs(r1, r2)))
+            } else {
+                None
+            }
+        },
     )(input)
 }
 
@@ -170,7 +187,7 @@ fn parse_separator(input: &str) -> IResult<&str, &str, Err> {
     preceded(opt(char(',')), space0)(input)
 }
 
-const INSTRUCTIONS: &[(Instr, fn(&str) -> IResult<&str, Args, Err>); 30] = &[
+const INSTRUCTIONS: &[(Instr, fn(&str) -> IResult<&str, Args, Err>); 45] = &[
     (Instr::Lsls, parse_rd_rm_imm5),
     (Instr::Lsrs, parse_rd_rm_imm5),
     (Instr::Asrs, parse_rd_rm_imm5),
@@ -179,8 +196,23 @@ const INSTRUCTIONS: &[(Instr, fn(&str) -> IResult<&str, Args, Err>); 30] = &[
     (Instr::Adds2, parse_rd_rn_imm3),
     (Instr::Subs2, parse_rd_rn_imm3),
     (Instr::Movs, parse_rd_imm8),
-    (Instr::Cmp, parse_rmrn),
     (Instr::Rsbs, parse_rdrn_imm0),
+    (Instr::Ands, parse_two_regs),
+    (Instr::Eors, parse_two_regs),
+    (Instr::Lsls2, parse_two_regs),
+    (Instr::Lsrs2, parse_two_regs),
+    (Instr::Asrs2, parse_two_regs),
+    (Instr::Adcs, parse_two_regs),
+    (Instr::Sbcs, parse_two_regs),
+    (Instr::Rors, parse_two_regs),
+    (Instr::Tst, parse_two_regs),
+    (Instr::Rsbs, parse_two_regs),
+    (Instr::Cmp, parse_two_regs),
+    (Instr::Cmn, parse_two_regs),
+    (Instr::Orrs, parse_two_regs),
+    (Instr::Muls, parse_rdm_rn_rdm),
+    (Instr::Bics, parse_two_regs),
+    (Instr::Mvns, parse_two_regs),
     (Instr::Str, parse_rt_sp_imm8),
     (Instr::Ldr, parse_rt_sp_imm8),
     (Instr::AddSp, parse_imm7),
