@@ -47,6 +47,11 @@ impl ToBinary for Immediate7W {
         imm_to_binary::<7>(self.0 / 4)
     }
 }
+impl ToBinary for Immediate8W {
+    fn to_binary(&self) -> BitVec<u8, Msb0> {
+        imm_to_binary::<8>(self.0 / 4)
+    }
+}
 
 impl ToBinary for Immediate11 {
     fn to_binary(&self) -> BitVec<u8, Msb0> {
@@ -77,6 +82,8 @@ fn binary_bit_count(instr: &Instr) -> u8 {
         Instr::Adds2 => 7,
         Instr::Subs2 => 7,
         Instr::Movs => 3,
+        Instr::Str => 5,
+        Instr::Ldr => 5,
         Instr::AddSp => 9,
         Instr::SubSp => 9,
         Instr::Cmp => 10,
@@ -149,6 +156,10 @@ impl ToBinary for FullInstr {
             }
             Args::Immediate11(args) => {
                 bits.extend_from_bitslice(&args.to_binary());
+            }
+            Args::RtSpImm8W(args) => {
+                bits.extend_from_bitslice(&args.0.to_binary());
+                bits.extend_from_bitslice(&args.1.to_binary());
             }
         }
         bits
@@ -223,5 +234,19 @@ mod tests {
             0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0 // Imm11
         ];
         assert_eq!(instr.to_binary(), expected);
+    }
+
+    #[test]
+    fn ldr() {
+        let input = FullInstr {
+            instr: Instr::Ldr,
+            args: Args::RtSpImm8W(RtSpImm8W(Reg::R2, Immediate8W(4))),
+        };
+        let expected = bits![
+            1, 0, 0, 1, 1, // Ldr
+            0, 1, 0, // Rt
+            0, 0, 0, 0, 0, 0, 0, 1, // Imm8
+        ];
+        assert_eq!(input.to_binary(), expected);
     }
 }

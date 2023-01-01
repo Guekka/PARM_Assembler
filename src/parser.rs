@@ -1,13 +1,13 @@
 use crate::instructions::{
-    Args, FullInstr, Immediate3, Immediate5, Immediate7W, Immediate8, Instr, ParsedLine, RdImm8,
-    RdRmImm5, RdRnImm0, RdRnImm3, RdRnRm, Reg, RnRm,
+    Args, FullInstr, Immediate3, Immediate5, Immediate7W, Immediate8, Immediate8W, Instr,
+    ParsedLine, RdImm8, RdRmImm5, RdRnImm0, RdRnImm3, RdRnRm, Reg, RnRm, RtSpImm8W,
 };
 use nom::bytes::complete::{tag_no_case, take_till, take_while};
 use nom::character::complete::{char, line_ending, space0};
 use nom::combinator::{map_opt, map_res, value};
 use nom::error::{ErrorKind, ParseError, VerboseError};
 use nom::multi::many1;
-use nom::sequence::{preceded, terminated};
+use nom::sequence::{delimited, preceded, terminated};
 use nom::{
     branch::alt,
     character::complete::digit1,
@@ -94,6 +94,23 @@ fn parse_rdrn_imm0(input: &str) -> IResult<&str, Args, Err> {
     )(input)
 }
 
+fn parse_rt_sp_imm8(input: &str) -> IResult<&str, Args, Err> {
+    map(
+        tuple((
+            preceded(parse_separator, parse_register),
+            preceded(
+                parse_separator,
+                delimited(
+                    tag_no_case("[sp"),
+                    preceded(parse_separator, parse_immediate8bits_w),
+                    char(']'),
+                ),
+            ),
+        )),
+        |(rt, imm8)| Args::RtSpImm8W(RtSpImm8W(rt, imm8)),
+    )(input)
+}
+
 fn parse_register(input: &str) -> IResult<&str, Reg, Err> {
     map_res(
         preceded(tag_no_case("r"), map_res(digit1, str::parse::<u8>)),
@@ -128,6 +145,12 @@ fn parse_immediate8bits(input: &str) -> IResult<&str, Immediate8, Err> {
         Immediate8,
     )(input)
 }
+fn parse_immediate8bits_w(input: &str) -> IResult<&str, Immediate8W, Err> {
+    map(
+        preceded(char('#'), map_res(digit1, str::parse::<u8>)),
+        Immediate8W,
+    )(input)
+}
 
 fn parse_label(input: &str) -> IResult<&str, &str, Err> {
     preceded(char('.'), take_while(|c: char| c.is_alphanumeric()))(input)
@@ -147,7 +170,7 @@ fn parse_separator(input: &str) -> IResult<&str, &str, Err> {
     preceded(opt(char(',')), space0)(input)
 }
 
-const INSTRUCTIONS: &[(Instr, fn(&str) -> IResult<&str, Args, Err>); 28] = &[
+const INSTRUCTIONS: &[(Instr, fn(&str) -> IResult<&str, Args, Err>); 30] = &[
     (Instr::Lsls, parse_rd_rm_imm5),
     (Instr::Lsrs, parse_rd_rm_imm5),
     (Instr::Asrs, parse_rd_rm_imm5),
@@ -158,6 +181,8 @@ const INSTRUCTIONS: &[(Instr, fn(&str) -> IResult<&str, Args, Err>); 28] = &[
     (Instr::Movs, parse_rd_imm8),
     (Instr::Cmp, parse_rmrn),
     (Instr::Rsbs, parse_rdrn_imm0),
+    (Instr::Str, parse_rt_sp_imm8),
+    (Instr::Ldr, parse_rt_sp_imm8),
     (Instr::AddSp, parse_imm7),
     (Instr::SubSp, parse_imm7),
     (Instr::Beq, parse_label_args),
@@ -501,6 +526,17 @@ mod tests {
             }),
         ];
         let res = parse_lines(input).unwrap();
+        assert_eq!(expected, res.1);
+    }
+
+    #[test]
+    fn ldr() {
+        let input = "ldr r2,[sp, #4]";
+        let expected = ParsedLine::Instr(FullInstr {
+            instr: Instr::Ldr,
+            args: Args::RtSpImm8W(RtSpImm8W(Reg::R2, Immediate8W(4))),
+        });
+        let res = parse_line(input).unwrap();
         assert_eq!(expected, res.1);
     }
 }
