@@ -79,7 +79,9 @@ fn binary_bit_count(instr: &Instr) -> u8 {
         Instr::Movs => 3,
         Instr::AddSp => 9,
         Instr::SubSp => 9,
-        Instr::B => 8,
+        Instr::Cmp => 10,
+        Instr::Rsbs => 10,
+        Instr::B => 5,
         Instr::Beq => 8,
         Instr::Bne => 8,
         Instr::Bcs => 8,
@@ -135,6 +137,17 @@ impl ToBinary for FullInstr {
                 bits.extend_from_bitslice(&args.1.to_binary());
             }
             Args::Immediate7W(args) => {
+                bits.extend_from_bitslice(&args.to_binary());
+            }
+            Args::RnRm(args) => {
+                bits.extend_from_bitslice(&args.1.to_binary());
+                bits.extend_from_bitslice(&args.0.to_binary());
+            }
+            Args::RdRnImm0(args) => {
+                bits.extend_from_bitslice(&args.1.to_binary());
+                bits.extend_from_bitslice(&args.0.to_binary());
+            }
+            Args::Immediate11(args) => {
                 bits.extend_from_bitslice(&args.to_binary());
             }
         }

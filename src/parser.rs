@@ -1,10 +1,10 @@
 use crate::instructions::{
     Args, FullInstr, Immediate3, Immediate5, Immediate7W, Immediate8, Instr, ParsedLine, RdImm8,
-    RdRmImm5, RdRnImm3, RdRnRm, Reg,
+    RdRmImm5, RdRnImm0, RdRnImm3, RdRnRm, Reg, RnRm,
 };
 use nom::bytes::complete::{tag_no_case, take_till, take_while};
 use nom::character::complete::{char, line_ending, space0};
-use nom::combinator::{map_res, value};
+use nom::combinator::{map_opt, map_res, value};
 use nom::error::{ErrorKind, ParseError, VerboseError};
 use nom::multi::many1;
 use nom::sequence::{preceded, terminated};
@@ -67,6 +67,33 @@ fn parse_imm7(input: &str) -> IResult<&str, Args, Err> {
     })(input)
 }
 
+fn parse_rmrn(input: &str) -> IResult<&str, Args, Err> {
+    map(
+        tuple((
+            preceded(parse_separator, parse_register),
+            preceded(parse_separator, parse_register),
+        )),
+        |(rm, rn)| Args::RnRm(RnRm(rm, rn)),
+    )(input)
+}
+
+fn parse_rdrn_imm0(input: &str) -> IResult<&str, Args, Err> {
+    map_opt(
+        tuple((
+            preceded(parse_separator, parse_register),
+            preceded(parse_separator, parse_register),
+            preceded(parse_separator, parse_immediate8bits),
+        )),
+        |(rd, rn, imm0)| {
+            if imm0.0 == 0 {
+                Some(Args::RdRnImm0(RdRnImm0(rd, rn)))
+            } else {
+                None
+            }
+        },
+    )(input)
+}
+
 fn parse_register(input: &str) -> IResult<&str, Reg, Err> {
     map_res(
         preceded(tag_no_case("r"), map_res(digit1, str::parse::<u8>)),
@@ -120,7 +147,7 @@ fn parse_separator(input: &str) -> IResult<&str, &str, Err> {
     preceded(opt(char(',')), space0)(input)
 }
 
-const INSTRUCTIONS: &[(Instr, fn(&str) -> IResult<&str, Args, Err>); 25] = &[
+const INSTRUCTIONS: &[(Instr, fn(&str) -> IResult<&str, Args, Err>); 28] = &[
     (Instr::Lsls, parse_rd_rm_imm5),
     (Instr::Lsrs, parse_rd_rm_imm5),
     (Instr::Asrs, parse_rd_rm_imm5),
@@ -129,6 +156,8 @@ const INSTRUCTIONS: &[(Instr, fn(&str) -> IResult<&str, Args, Err>); 25] = &[
     (Instr::Adds2, parse_rd_rn_imm3),
     (Instr::Subs2, parse_rd_rn_imm3),
     (Instr::Movs, parse_rd_imm8),
+    (Instr::Cmp, parse_rmrn),
+    (Instr::Rsbs, parse_rdrn_imm0),
     (Instr::AddSp, parse_imm7),
     (Instr::SubSp, parse_imm7),
     (Instr::Beq, parse_label_args),
