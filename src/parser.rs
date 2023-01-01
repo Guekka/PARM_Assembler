@@ -145,6 +145,7 @@ const INSTRUCTIONS: &[(Instr, fn(&str) -> IResult<&str, Args, Err>); 25] = &[
     (Instr::Blt, parse_label_args),
     (Instr::Bgt, parse_label_args),
     (Instr::Ble, parse_label_args),
+    (Instr::Bal, parse_label_args),
     (Instr::B, parse_label_args),
 ];
 

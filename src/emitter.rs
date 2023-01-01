@@ -94,6 +94,7 @@ fn binary_bit_count(instr: &Instr) -> u8 {
         Instr::Blt => 8,
         Instr::Bgt => 8,
         Instr::Ble => 8,
+        Instr::Bal => 8,
     }
 }
 
@@ -202,11 +203,11 @@ mod tests {
     fn branch() {
         let instr = FullInstr {
             instr: Instr::B,
-            args: Args::Immediate8(Immediate8(0b0000_0010)),
+            args: Args::Immediate11(Immediate11(0b0000_0000_010)),
         };
         let expected = bits![
-            1, 1, 0, 1, 1, 1, 1, 0, // B
-            0, 0, 0, 0, 0, 0, 1, 0 // Imm8
+            1, 1, 1, 0, 0, // B
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0 // Imm11
         ];
         assert_eq!(instr.to_binary(), expected);
     }

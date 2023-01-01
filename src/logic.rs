@@ -63,7 +63,7 @@ mod tests {
                 args: Args::RdRmImm5(RdRmImm5(R0, R1, Immediate5(5))),
             }),
             ParsedLine::Instr(FullInstr {
-                instr: Instr::B,
+                instr: Instr::Bal,
                 args: Args::Label("label2".to_owned()),
             }),
             ParsedLine::Instr(FullInstr {
@@ -72,7 +72,7 @@ mod tests {
             }),
             ParsedLine::Label("label2".to_owned()),
             ParsedLine::Instr(FullInstr {
-                instr: Instr::B,
+                instr: Instr::Bal,
                 args: Args::Label("label1".to_owned()),
             }),
         ];

@@ -96,7 +96,8 @@ pub enum Instr {
     Blt = 0b1101_1011,
     Bgt = 0b1101_1100,
     Ble = 0b1101_1101,
-    B = 0b1101_1110,
+    Bal = 0b1101_1110,
+    B = 0b11100,
 }
 
 impl Instr {
@@ -127,6 +128,7 @@ impl Instr {
             Instr::Blt => "blt",
             Instr::Bgt => "bgt",
             Instr::Ble => "ble",
+            Instr::Bal => "bal",
         }
     }
 }
