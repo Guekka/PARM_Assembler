@@ -152,12 +152,34 @@ pub struct FullInstr {
 
 pub type LabelLookup = HashMap<String, usize>;
 
+fn complete_bcond(label: usize, cur_line: usize) -> Result<Args, ()> {
+    let offset = label as i16 - cur_line as i16 - 3;
+
+    i8::try_from(offset)
+        .map(|offset| Args::Immediate8(Immediate8(offset as u8)))
+        .map_err(|_| ())
+}
+
+fn complete_buncond(label: usize, cur_line: usize) -> Result<Args, ()> {
+    let offset = label as i16 - cur_line as i16 - 3;
+
+    if !(-1024..=1023).contains(&offset) {
+        return Err(());
+    }
+    Ok(Args::Immediate11(Immediate11(offset as u16)))
+}
+
 impl FullInstr {
-    pub fn complete(&self, labels: &LabelLookup) -> Result<FullInstr, ()> {
+    pub fn complete(&self, cur_line: usize, labels: &LabelLookup) -> Result<FullInstr, ()> {
         let mut copy = self.clone();
         if let Args::Label(ref label) = self.args {
             if let Some(&addr) = labels.get(label) {
-                copy.args = Args::Immediate8(Immediate8(addr as u8));
+                copy.args = match self {
+                    FullInstr {
+                        instr: Instr::B, ..
+                    } => complete_buncond(addr, cur_line)?,
+                    _ => complete_bcond(addr, cur_line)?,
+                }
             } else {
                 return Err(());
             }

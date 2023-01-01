@@ -25,7 +25,8 @@ pub fn make_program(instrs: Vec<ParsedLine>) -> Result<Vec<u16>, String> {
             _ => None,
         })
         .inspect(|i| println!("0: {:?}", i))
-        .map(|i| i.complete(&labels))
+        .enumerate()
+        .map(|(i, instr)| instr.complete(i, &labels))
         .inspect(|i| println!("1: {:?}", i))
         .map(|r| r.map(|i| i.to_binary()))
         .inspect(|r| println!("2: {:?}", r))
@@ -89,9 +90,9 @@ mod tests {
             program,
             vec![
                 0b00001_00101_001_000,
-                0b11011110_00000011, // b to label at line 3
+                0b11011110_11111111, // bal to label at line 3
                 0b00000_00010_101_100,
-                0b11011110_00000000 // b to label at line 0
+                0b11011110_11111010 // bal to label at line 0
             ]
         );
     }
