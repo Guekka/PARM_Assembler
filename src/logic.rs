@@ -11,7 +11,7 @@ pub fn calculate_labels(instrs: &[ParsedLine]) -> LabelLookup {
             _ => None,
         })
         .enumerate()
-        .map(|(label_i, (i, l))| (l.to_owned(), i - label_i))
+        .map(|(label_i, (i, l))| (l, i - label_i))
         .collect()
 }
 
