@@ -1,4 +1,5 @@
-use crate::instructions::{Args, FullInstr, Immediate, Instr, ParsedLine, Reg};
+use crate::instructions::{Args, FullInstr, Immediate, Immediate8, Instr, ParsedLine, Reg};
+use crate::utils::Appliable;
 use nom::bytes::complete::{tag_no_case, take_till, take_while};
 use nom::character::complete::{char, line_ending, space0};
 use nom::combinator::{map_opt, map_res, value};
@@ -16,53 +17,79 @@ use thiserror::Error;
 
 pub type Err<'a> = VerboseError<&'a str>;
 
-type Err<'a> = VerboseError<&'a str>;
+trait Parseable: Sized {
+    fn parse(input: &str) -> IResult<&str, Self, Err>;
+}
+
+impl Parseable for Reg {
+    fn parse(input: &str) -> IResult<&str, Reg, Err> {
+        map_res(
+            preceded(tag_no_case("r"), map_res(digit1, str::parse::<u8>)),
+            Reg::try_from,
+        )(input)
+    }
+}
+
+impl<const N: u8, const WIDE: bool> Parseable for Immediate<N, WIDE> {
+    fn parse(input: &str) -> IResult<&str, Immediate<N, WIDE>, Err> {
+        map_res(
+            preceded(
+                char('#'),
+                map_res(
+                    take_while(|c: char| c.is_ascii_hexdigit()),
+                    str::parse::<u16>,
+                ),
+            ),
+            Immediate::<N, WIDE>::new,
+        )(input)
+    }
+}
 
 fn parse_rd_rm_imm5(input: &str) -> IResult<&str, Args, Err> {
     map(
         tuple((
-            preceded(parse_separator, parse_register),
-            preceded(parse_separator, parse_register),
-            preceded(parse_separator, parse_immediate),
+            preceded(parse_separator, Reg::parse),
+            preceded(parse_separator, Reg::parse),
+            preceded(parse_separator, Immediate::parse),
         )),
-        |(rd, rm, imm5)| Args::RdRmImm5(rd, rm, imm5),
+        Args::RdRmImm5.make_appliable(),
     )(input)
 }
 
 fn parse_rd_rn_rm(input: &str) -> IResult<&str, Args, Err> {
     map(
         tuple((
-            preceded(parse_separator, parse_register),
-            preceded(parse_separator, parse_register),
-            preceded(parse_separator, parse_register),
+            preceded(parse_separator, Reg::parse),
+            preceded(parse_separator, Reg::parse),
+            preceded(parse_separator, Reg::parse),
         )),
-        |(rd, rn, rm)| Args::RdRnRm(rd, rn, rm),
+        Args::RdRnRm.make_appliable(),
     )(input)
 }
 
 fn parse_rd_rn_imm3(input: &str) -> IResult<&str, Args, Err> {
     map(
         tuple((
-            preceded(parse_separator, parse_register),
-            preceded(parse_separator, parse_register),
-            preceded(parse_separator, parse_immediate),
+            preceded(parse_separator, Reg::parse),
+            preceded(parse_separator, Reg::parse),
+            preceded(parse_separator, Immediate::parse),
         )),
-        |(rd, rn, imm3)| Args::RdRnImm3(rd, rn, imm3),
+        Args::RdRnImm3.make_appliable(),
     )(input)
 }
 
 fn parse_rd_imm8(input: &str) -> IResult<&str, Args, Err> {
     map(
         tuple((
-            preceded(parse_separator, parse_register),
-            preceded(parse_separator, parse_immediate),
+            preceded(parse_separator, Reg::parse),
+            preceded(parse_separator, Immediate::parse),
         )),
-        |(rd, imm8)| Args::RdImm8(rd, imm8),
+        Args::RdImm8.make_appliable(),
     )(input)
 }
 
 fn parse_imm7(input: &str) -> IResult<&str, Args, Err> {
-    map(preceded(parse_separator, parse_immediate), |imm7| {
+    map(preceded(parse_separator, Immediate::parse), |imm7| {
         Args::Immediate7W(imm7)
     })(input)
 }
@@ -70,19 +97,19 @@ fn parse_imm7(input: &str) -> IResult<&str, Args, Err> {
 fn parse_two_regs(input: &str) -> IResult<&str, Args, Err> {
     map(
         tuple((
-            preceded(parse_separator, parse_register),
-            preceded(parse_separator, parse_register),
+            preceded(parse_separator, Reg::parse),
+            preceded(parse_separator, Reg::parse),
         )),
-        |(r1, r2)| Args::TwoRegs(r1, r2),
+        Args::TwoRegs.make_appliable(),
     )(input)
 }
 
 fn parse_rdm_rn_rdm(input: &str) -> IResult<&str, Args, Err> {
     map_opt(
         tuple((
-            preceded(parse_separator, parse_register),
-            preceded(parse_separator, parse_register),
-            preceded(parse_separator, parse_register),
+            preceded(parse_separator, Reg::parse),
+            preceded(parse_separator, Reg::parse),
+            preceded(parse_separator, Reg::parse),
         )),
         |(r1, r2, r1_)| {
             if r1 == r1_ {
@@ -97,9 +124,9 @@ fn parse_rdm_rn_rdm(input: &str) -> IResult<&str, Args, Err> {
 fn parse_rdrn_imm0(input: &str) -> IResult<&str, Args, Err> {
     map_opt(
         tuple((
-            preceded(parse_separator, parse_register),
-            preceded(parse_separator, parse_register),
-            preceded(parse_separator, parse_immediate::<8, false>),
+            preceded(parse_separator, Reg::parse),
+            preceded(parse_separator, Reg::parse),
+            preceded(parse_separator, Immediate8::parse),
         )),
         |(rd, rn, imm0)| {
             if imm0.0 == 0 {
@@ -114,24 +141,17 @@ fn parse_rdrn_imm0(input: &str) -> IResult<&str, Args, Err> {
 fn parse_rt_sp_imm8(input: &str) -> IResult<&str, Args, Err> {
     map(
         tuple((
-            preceded(parse_separator, parse_register),
+            preceded(parse_separator, Reg::parse),
             preceded(
                 parse_separator,
                 delimited(
                     tag_no_case("[sp"),
-                    preceded(parse_separator, parse_immediate),
+                    preceded(parse_separator, Immediate::parse),
                     char(']'),
                 ),
             ),
         )),
-        |(rt, imm8)| Args::RtSpImm8W(rt, imm8),
-    )(input)
-}
-
-fn parse_register(input: &str) -> IResult<&str, Reg, Err> {
-    map_res(
-        preceded(tag_no_case("r"), map_res(digit1, str::parse::<u8>)),
-        Reg::try_from,
+        Args::RtSpImm8W.make_appliable(),
     )(input)
 }
 
