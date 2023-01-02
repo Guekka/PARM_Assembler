@@ -161,23 +161,11 @@ fn parse_rt_sp_imm8(input: &str) -> IResult<&str, Args, Err> {
     )(input)
 }
 
-fn parse_immediate<const N: u8, const WIDE: bool>(
-    input: &str,
-) -> IResult<&str, Immediate<N, WIDE>, Err> {
-    map_res(
-        preceded(
-            char('#'),
-            map_res(
-                take_while(|c: char| c.is_ascii_hexdigit()),
-                str::parse::<u16>,
-            ),
-        ),
-        Immediate::<N, WIDE>::new,
-    )(input)
-}
-
 fn parse_label(input: &str) -> IResult<&str, &str, Err> {
-    preceded(char('.'), take_while(|c: char| c.is_alphanumeric()))(input)
+    preceded(
+        opt(char('.')),
+        take_while(|c: char| c.is_alphanumeric() || c == '_'),
+    )(input)
 }
 
 fn parse_label_definition(input: &str) -> IResult<&str, &str, Err> {
