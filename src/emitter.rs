@@ -36,16 +36,6 @@ impl<const N: u8, const WIDE: bool> ToBinary for SignedImmediate<N, WIDE> {
     }
 }
 
-impl ToBinary for RdRmImm5 {
-    fn to_binary(&self) -> BitVec<u8, Msb0> {
-        let mut bits = BitVec::<u8, Msb0>::new();
-        bits.extend_from_bitslice(&self.2.to_binary());
-        bits.extend_from_bitslice(&self.1.to_binary());
-        bits.extend_from_bitslice(&self.0.to_binary());
-        bits
-    }
-}
-
 fn binary_bit_count(instr: &Instr) -> u8 {
     match instr {
         Instr::Lsls => 5,
@@ -106,48 +96,50 @@ impl ToBinary for Instr {
     }
 }
 
-impl ToBinary for FullInstr {
+impl ToBinary for Args {
     fn to_binary(&self) -> BitVec<u8, Msb0> {
-        let mut bits = self.instr.to_binary();
-        match self.args {
-            Args::RdRmImm5(args) => {
-                bits.extend_from_bitslice(&args.to_binary());
+        let mut bits = BitVec::<u8, Msb0>::new();
+        match self {
+            Args::RdRmImm5(rd, rm, imm5) => {
+                bits.extend_from_bitslice(&imm5.to_binary());
+                bits.extend_from_bitslice(&rm.to_binary());
+                bits.extend_from_bitslice(&rd.to_binary());
             }
-            Args::Immediate8(args) => {
-                bits.extend_from_bitslice(&args.to_binary());
+            Args::Immediate8(imm8) => {
+                bits.extend_from_bitslice(&imm8.to_binary());
             }
-            Args::RdRnImm3(args) => {
-                bits.extend_from_bitslice(&args.2.to_binary());
-                bits.extend_from_bitslice(&args.1.to_binary());
-                bits.extend_from_bitslice(&args.0.to_binary());
+            Args::RdRnImm3(rd, rn, imm3) => {
+                bits.extend_from_bitslice(&imm3.to_binary());
+                bits.extend_from_bitslice(&rn.to_binary());
+                bits.extend_from_bitslice(&rd.to_binary());
             }
             Args::Label(_) => panic!("Label not resolved"),
-            Args::RdRnRm(args) => {
-                bits.extend_from_bitslice(&args.2.to_binary());
-                bits.extend_from_bitslice(&args.1.to_binary());
-                bits.extend_from_bitslice(&args.0.to_binary());
+            Args::RdRnRm(rd, rn, rm) => {
+                bits.extend_from_bitslice(&rm.to_binary());
+                bits.extend_from_bitslice(&rn.to_binary());
+                bits.extend_from_bitslice(&rd.to_binary());
             }
-            Args::RdImm8(args) => {
-                bits.extend_from_bitslice(&args.0.to_binary());
-                bits.extend_from_bitslice(&args.1.to_binary());
+            Args::RdImm8(rd, imm8) => {
+                bits.extend_from_bitslice(&rd.to_binary());
+                bits.extend_from_bitslice(&imm8.to_binary());
             }
-            Args::Immediate7W(args) => {
-                bits.extend_from_bitslice(&args.to_binary());
+            Args::Immediate7W(imm7w) => {
+                bits.extend_from_bitslice(&imm7w.to_binary());
             }
-            Args::TwoRegs(args) => {
-                bits.extend_from_bitslice(&args.1.to_binary());
-                bits.extend_from_bitslice(&args.0.to_binary());
+            Args::TwoRegs(r1, r2) => {
+                bits.extend_from_bitslice(&r2.to_binary());
+                bits.extend_from_bitslice(&r1.to_binary());
             }
-            Args::RdRnImm0(args) => {
-                bits.extend_from_bitslice(&args.1.to_binary());
-                bits.extend_from_bitslice(&args.0.to_binary());
+            Args::RdRnImm0(rd, rn) => {
+                bits.extend_from_bitslice(&rn.to_binary());
+                bits.extend_from_bitslice(&rd.to_binary());
             }
-            Args::Immediate11(args) => {
-                bits.extend_from_bitslice(&args.to_binary());
+            Args::Immediate11(imm11) => {
+                bits.extend_from_bitslice(&imm11.to_binary());
             }
-            Args::RtSpImm8W(args) => {
-                bits.extend_from_bitslice(&args.0.to_binary());
-                bits.extend_from_bitslice(&args.1.to_binary());
+            Args::RtSpImm8W(rt, imm8w) => {
+                bits.extend_from_bitslice(&rt.to_binary());
+                bits.extend_from_bitslice(&imm8w.to_binary());
             }
             Args::Immediate8S(args) => {
                 bits.extend_from_bitslice(&args.to_binary());
@@ -157,9 +149,18 @@ impl ToBinary for FullInstr {
     }
 }
 
+impl ToBinary for FullInstr {
+    fn to_binary(&self) -> BitVec<u8, Msb0> {
+        let mut bits = self.instr.to_binary();
+        bits.extend_from_bitslice(&self.args.to_binary());
+        bits
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::instructions::Args::RdRmImm5;
     use crate::instructions::Immediate11;
 
     #[test]
@@ -204,7 +205,7 @@ mod tests {
     fn lsls() {
         let instr = FullInstr {
             instr: Instr::Lsls,
-            args: Args::RdRmImm5(RdRmImm5(Reg::R3, Reg::R4, Immediate5::new(7).unwrap())),
+            args: Args::RdRmImm5(Reg::R3, Reg::R4, Immediate5::new(7).unwrap()),
         };
         let expected = bits![
             0, 0, 0, 0, 0, // Lsls
@@ -232,7 +233,7 @@ mod tests {
     fn ldr() {
         let input = FullInstr {
             instr: Instr::Ldr,
-            args: Args::RtSpImm8W(RtSpImm8W(Reg::R2, Immediate8W::new(4).unwrap())),
+            args: Args::RtSpImm8W(Reg::R2, Immediate8W::new(4).unwrap()),
         };
         let expected = bits![
             1, 0, 0, 1, 1, // Ldr

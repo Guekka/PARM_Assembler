@@ -48,13 +48,13 @@ mod tests {
     use super::*;
     use crate::instructions::Args::Label;
     use crate::instructions::Reg::{R0, R1, R4, R5};
-    use crate::instructions::{Args, FullInstr, Immediate5, Instr, RdRmImm5};
+    use crate::instructions::{Args, FullInstr, Immediate5, Instr};
 
     #[test]
     fn test_simple_program() {
         let instrs = vec![ParsedLine::Instr(FullInstr {
             instr: Instr::Lsrs,
-            args: Args::RdRmImm5(RdRmImm5(R0, R1, Immediate5::new(5).unwrap())),
+            args: Args::RdRmImm5(R0, R1, Immediate5::new(5).unwrap()),
         })];
 
         let program = make_program(instrs).unwrap();
@@ -67,7 +67,7 @@ mod tests {
             ParsedLine::Label("label1".to_owned()),
             ParsedLine::Instr(FullInstr {
                 instr: Instr::Lsrs,
-                args: Args::RdRmImm5(RdRmImm5(R0, R1, Immediate5::new(5).unwrap())),
+                args: Args::RdRmImm5(R0, R1, Immediate5::new(5).unwrap()),
             }),
             ParsedLine::Instr(FullInstr {
                 instr: Instr::Bal,
@@ -75,7 +75,7 @@ mod tests {
             }),
             ParsedLine::Instr(FullInstr {
                 instr: Instr::Lsls,
-                args: Args::RdRmImm5(RdRmImm5(R4, R5, Immediate5::new(2).unwrap())),
+                args: Args::RdRmImm5(R4, R5, Immediate5::new(2).unwrap()),
             }),
             ParsedLine::Label("label2".to_owned()),
             ParsedLine::Instr(FullInstr {

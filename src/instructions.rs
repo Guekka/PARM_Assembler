@@ -90,37 +90,6 @@ impl<const N: u8, const WIDE: bool> SignedImmediate<N, WIDE> {
     }
 }
 
-pub type Immediate3 = Immediate<3, false>;
-pub type Immediate5 = Immediate<5, false>;
-pub type Immediate8 = Immediate<8, false>;
-pub type Immediate11 = SignedImmediate<11, false>;
-
-pub type Immediate8S = SignedImmediate<8, false>;
-
-pub type Immediate7W = Immediate<7, true>;
-pub type Immediate8W = Immediate<8, true>;
-
-#[derive(PartialEq, Debug, Copy, Clone)]
-pub struct RdRmImm5(pub Reg, pub Reg, pub Immediate5);
-
-#[derive(PartialEq, Debug, Copy, Clone)]
-pub struct RdRnRm(pub Reg, pub Reg, pub Reg);
-
-#[derive(PartialEq, Debug, Copy, Clone)]
-pub struct RdRnImm3(pub Reg, pub Reg, pub Immediate3);
-
-#[derive(PartialEq, Debug, Copy, Clone)]
-pub struct RdImm8(pub Reg, pub Immediate8);
-
-#[derive(PartialEq, Debug, Copy, Clone)]
-pub struct TwoRegs(pub Reg, pub Reg);
-
-#[derive(PartialEq, Debug, Copy, Clone)]
-pub struct RdRnImm0(pub Reg, pub Reg);
-
-#[derive(PartialEq, Debug, Copy, Clone)]
-pub struct RtSpImm8W(pub Reg, pub Immediate8W);
-
 #[derive(PartialEq, Debug, Copy, Clone)]
 #[repr(u16)]
 pub enum Instr {
@@ -225,20 +194,30 @@ impl Instr {
     }
 }
 
+pub type Immediate3 = Immediate<3, false>;
+pub type Immediate5 = Immediate<5, false>;
+pub type Immediate8 = Immediate<8, false>;
+pub type Immediate11 = SignedImmediate<11, false>;
+
+pub type Immediate8S = SignedImmediate<8, false>;
+
+pub type Immediate7W = Immediate<7, true>;
+pub type Immediate8W = Immediate<8, true>;
+
 #[derive(PartialEq, Debug, Clone)]
 pub enum Args {
-    RdRmImm5(RdRmImm5),
-    Label(String),
-    Immediate8(Immediate8),
-    RdRnRm(RdRnRm),
-    RdRnImm3(RdRnImm3),
-    RdImm8(RdImm8),
-    Immediate7W(Immediate7W),
     Immediate11(Immediate11),
+    Immediate7W(Immediate7W),
+    Immediate8(Immediate8),
     Immediate8S(Immediate8S),
-    TwoRegs(TwoRegs),
-    RdRnImm0(RdRnImm0),
-    RtSpImm8W(RtSpImm8W),
+    Label(String),
+    RdImm8(Reg, Immediate8),
+    RdRmImm5(Reg, Reg, Immediate5),
+    RdRnImm0(Reg, Reg),
+    RdRnImm3(Reg, Reg, Immediate3),
+    RdRnRm(Reg, Reg, Reg),
+    RtSpImm8W(Reg, Immediate8W),
+    TwoRegs(Reg, Reg),
 }
 
 #[derive(PartialEq, Debug, Clone)]

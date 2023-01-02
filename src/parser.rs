@@ -1,7 +1,4 @@
-use crate::instructions::{
-    Args, FullInstr, Immediate, Instr, ParsedLine, RdImm8, RdRmImm5, RdRnImm0, RdRnImm3, RdRnRm,
-    Reg, RtSpImm8W, TwoRegs,
-};
+use crate::instructions::{Args, FullInstr, Immediate, Instr, ParsedLine, Reg};
 use nom::bytes::complete::{tag_no_case, take_till, take_while};
 use nom::character::complete::{char, line_ending, space0};
 use nom::combinator::{map_opt, map_res, value};
@@ -25,7 +22,7 @@ fn parse_rd_rm_imm5(input: &str) -> IResult<&str, Args, Err> {
             preceded(parse_separator, parse_register),
             preceded(parse_separator, parse_immediate),
         )),
-        |(rd, rm, imm5)| Args::RdRmImm5(RdRmImm5(rd, rm, imm5)),
+        |(rd, rm, imm5)| Args::RdRmImm5(rd, rm, imm5),
     )(input)
 }
 
@@ -36,7 +33,7 @@ fn parse_rd_rn_rm(input: &str) -> IResult<&str, Args, Err> {
             preceded(parse_separator, parse_register),
             preceded(parse_separator, parse_register),
         )),
-        |(rd, rn, rm)| Args::RdRnRm(RdRnRm(rd, rn, rm)),
+        |(rd, rn, rm)| Args::RdRnRm(rd, rn, rm),
     )(input)
 }
 
@@ -47,7 +44,7 @@ fn parse_rd_rn_imm3(input: &str) -> IResult<&str, Args, Err> {
             preceded(parse_separator, parse_register),
             preceded(parse_separator, parse_immediate),
         )),
-        |(rd, rn, imm3)| Args::RdRnImm3(RdRnImm3(rd, rn, imm3)),
+        |(rd, rn, imm3)| Args::RdRnImm3(rd, rn, imm3),
     )(input)
 }
 
@@ -57,7 +54,7 @@ fn parse_rd_imm8(input: &str) -> IResult<&str, Args, Err> {
             preceded(parse_separator, parse_register),
             preceded(parse_separator, parse_immediate),
         )),
-        |(rd, imm8)| Args::RdImm8(RdImm8(rd, imm8)),
+        |(rd, imm8)| Args::RdImm8(rd, imm8),
     )(input)
 }
 
@@ -73,7 +70,7 @@ fn parse_two_regs(input: &str) -> IResult<&str, Args, Err> {
             preceded(parse_separator, parse_register),
             preceded(parse_separator, parse_register),
         )),
-        |(r1, r2)| Args::TwoRegs(TwoRegs(r1, r2)),
+        |(r1, r2)| Args::TwoRegs(r1, r2),
     )(input)
 }
 
@@ -86,7 +83,7 @@ fn parse_rdm_rn_rdm(input: &str) -> IResult<&str, Args, Err> {
         )),
         |(r1, r2, r1_)| {
             if r1 == r1_ {
-                Some(Args::TwoRegs(TwoRegs(r1, r2)))
+                Some(Args::TwoRegs(r1, r2))
             } else {
                 None
             }
@@ -103,7 +100,7 @@ fn parse_rdrn_imm0(input: &str) -> IResult<&str, Args, Err> {
         )),
         |(rd, rn, imm0)| {
             if imm0.0 == 0 {
-                Some(Args::RdRnImm0(RdRnImm0(rd, rn)))
+                Some(Args::RdRnImm0(rd, rn))
             } else {
                 None
             }
@@ -124,7 +121,7 @@ fn parse_rt_sp_imm8(input: &str) -> IResult<&str, Args, Err> {
                 ),
             ),
         )),
-        |(rt, imm8)| Args::RtSpImm8W(RtSpImm8W(rt, imm8)),
+        |(rt, imm8)| Args::RtSpImm8W(rt, imm8),
     )(input)
 }
 
@@ -297,7 +294,7 @@ mod tests {
         let res = parse_instr(input).unwrap();
         let expected = FullInstr {
             instr: Instr::Lsls,
-            args: Args::RdRmImm5(RdRmImm5(Reg::R0, Reg::R1, Immediate5::new(4).unwrap())),
+            args: Args::RdRmImm5(Reg::R0, Reg::R1, Immediate5::new(4).unwrap()),
         };
         assert_eq!(res.1, expected);
     }
@@ -308,7 +305,7 @@ mod tests {
         let res = parse_instr(input).unwrap();
         let expected = FullInstr {
             instr: Instr::Lsrs,
-            args: Args::RdRmImm5(RdRmImm5(Reg::R2, Reg::R5, Immediate5::new(9).unwrap())),
+            args: Args::RdRmImm5(Reg::R2, Reg::R5, Immediate5::new(9).unwrap()),
         };
         assert_eq!(res.1, expected);
     }
@@ -319,7 +316,7 @@ mod tests {
         let res = parse_instr(input).unwrap();
         let expected = FullInstr {
             instr: Instr::Asrs,
-            args: Args::RdRmImm5(RdRmImm5(Reg::R3, Reg::R7, Immediate5::new(15).unwrap())),
+            args: Args::RdRmImm5(Reg::R3, Reg::R7, Immediate5::new(15).unwrap()),
         };
         assert_eq!(res.1, expected);
     }
@@ -336,7 +333,7 @@ mod tests {
         let res = parse_line(input).unwrap();
         let expected = ParsedLine::Instr(FullInstr {
             instr: Instr::Lsls,
-            args: Args::RdRmImm5(RdRmImm5(Reg::R0, Reg::R1, Immediate5::new(4).unwrap())),
+            args: Args::RdRmImm5(Reg::R0, Reg::R1, Immediate5::new(4).unwrap()),
         });
         assert_eq!(res.1, expected);
     }
@@ -377,15 +374,15 @@ mod tests {
         let expected = &[
             ParsedLine::Instr(FullInstr {
                 instr: Instr::Lsls,
-                args: Args::RdRmImm5(RdRmImm5(Reg::R0, Reg::R1, Immediate5::new(4).unwrap())),
+                args: Args::RdRmImm5(Reg::R0, Reg::R1, Immediate5::new(4).unwrap()),
             }),
             ParsedLine::Instr(FullInstr {
                 instr: Instr::Lsrs,
-                args: Args::RdRmImm5(RdRmImm5(Reg::R2, Reg::R5, Immediate5::new(9).unwrap())),
+                args: Args::RdRmImm5(Reg::R2, Reg::R5, Immediate5::new(9).unwrap()),
             }),
             ParsedLine::Instr(FullInstr {
                 instr: Instr::Asrs,
-                args: Args::RdRmImm5(RdRmImm5(Reg::R3, Reg::R7, Immediate5::new(15).unwrap())),
+                args: Args::RdRmImm5(Reg::R3, Reg::R7, Immediate5::new(15).unwrap()),
             }),
         ];
         let res = parse_lines(input);
@@ -427,16 +424,16 @@ mod tests {
             ParsedLine::Label("label".to_owned()),
             ParsedLine::Instr(FullInstr {
                 instr: Instr::Lsls,
-                args: Args::RdRmImm5(RdRmImm5(Reg::R0, Reg::R1, Immediate5::new(4).unwrap())),
+                args: Args::RdRmImm5(Reg::R0, Reg::R1, Immediate5::new(4).unwrap()),
             }),
             ParsedLine::Instr(FullInstr {
                 instr: Instr::Lsrs,
-                args: Args::RdRmImm5(RdRmImm5(Reg::R2, Reg::R5, Immediate5::new(9).unwrap())),
+                args: Args::RdRmImm5(Reg::R2, Reg::R5, Immediate5::new(9).unwrap()),
             }),
             ParsedLine::Label("label2".to_owned()),
             ParsedLine::Instr(FullInstr {
                 instr: Instr::Asrs,
-                args: Args::RdRmImm5(RdRmImm5(Reg::R3, Reg::R7, Immediate5::new(15).unwrap())),
+                args: Args::RdRmImm5(Reg::R3, Reg::R7, Immediate5::new(15).unwrap()),
             }),
             ParsedLine::Instr(FullInstr {
                 instr: Instr::B,
@@ -484,39 +481,39 @@ mod tests {
         let expected: Vec<ParsedLine> = vec![
             ParsedLine::Instr(FullInstr {
                 instr: Instr::Movs,
-                args: Args::RdImm8(RdImm8(R0, Immediate8::new(0).unwrap())),
+                args: Args::RdImm8(R0, Immediate8::new(0).unwrap()),
             }),
             ParsedLine::Instr(FullInstr {
                 instr: Instr::Movs,
-                args: Args::RdImm8(RdImm8(R1, Immediate8::new(1).unwrap())),
+                args: Args::RdImm8(R1, Immediate8::new(1).unwrap()),
             }),
             ParsedLine::Instr(FullInstr {
                 instr: Instr::Movs,
-                args: Args::RdImm8(RdImm8(R2, Immediate8::new(170).unwrap())),
+                args: Args::RdImm8(R2, Immediate8::new(170).unwrap()),
             }),
             ParsedLine::Instr(FullInstr {
                 instr: Instr::Movs,
-                args: Args::RdImm8(RdImm8(R3, Immediate8::new(255).unwrap())),
+                args: Args::RdImm8(R3, Immediate8::new(255).unwrap()),
             }),
             ParsedLine::Instr(FullInstr {
                 instr: Instr::Lsls,
-                args: Args::RdRmImm5(RdRmImm5(R4, R2, Immediate5::new(1).unwrap())),
+                args: Args::RdRmImm5(R4, R2, Immediate5::new(1).unwrap()),
             }),
             ParsedLine::Instr(FullInstr {
                 instr: Instr::Lsrs,
-                args: Args::RdRmImm5(RdRmImm5(R5, R2, Immediate5::new(1).unwrap())),
+                args: Args::RdRmImm5(R5, R2, Immediate5::new(1).unwrap()),
             }),
             ParsedLine::Instr(FullInstr {
                 instr: Instr::Subs2,
-                args: Args::RdRnImm3(RdRnImm3(R6, R0, Immediate3::new(5).unwrap())),
+                args: Args::RdRnImm3(R6, R0, Immediate3::new(5).unwrap()),
             }),
             ParsedLine::Instr(FullInstr {
                 instr: Instr::Asrs,
-                args: Args::RdRmImm5(RdRmImm5(R6, R6, Immediate5::new(1).unwrap())),
+                args: Args::RdRmImm5(R6, R6, Immediate5::new(1).unwrap()),
             }),
             ParsedLine::Instr(FullInstr {
                 instr: Instr::Adds,
-                args: Args::RdRnRm(RdRnRm(R7, R6, R1)),
+                args: Args::RdRnRm(R7, R6, R1),
             }),
         ];
         let res = parse_lines(input).unwrap();
@@ -548,7 +545,7 @@ mod tests {
         let input = "ldr r2,[sp, #4]";
         let expected = ParsedLine::Instr(FullInstr {
             instr: Instr::Ldr,
-            args: Args::RtSpImm8W(RtSpImm8W(Reg::R2, Immediate8W::new(4).unwrap())),
+            args: Args::RtSpImm8W(Reg::R2, Immediate8W::new(4).unwrap()),
         });
         let res = parse_line(input).unwrap();
         assert_eq!(expected, res.1);
