@@ -8,11 +8,21 @@ use crate::instructions::CompleteError;
 pub use crate::logic::make_program;
 pub use crate::parser::parse_lines;
 
+use thiserror::Error;
+
 const HEADER: &str = "v2.0 raw\n";
 
-pub fn export_to_logisim(input: &str) -> Result<String, CompleteError> {
-    let parsed = parse_lines(input).unwrap();
-    let program = make_program(parsed.1)?;
+#[derive(Error, Debug)]
+pub enum ExportError {
+    #[error("Could not complete instruction: {0}")]
+    CompleteError(#[from] CompleteError),
+    #[error("Could not parse input: {0}")]
+    ParseError(#[from] parser::ParseError),
+}
+
+pub fn export_to_logisim(input: &str) -> Result<String, ExportError> {
+    let parsed = parse_lines(input)?;
+    let program = make_program(parsed)?;
 
     let mut out = HEADER.to_owned();
     out.reserve(program.len() * 5);

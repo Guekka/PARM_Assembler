@@ -2,7 +2,7 @@ use crate::instructions::{Args, FullInstr, Immediate, Instr, ParsedLine, Reg};
 use nom::bytes::complete::{tag_no_case, take_till, take_while};
 use nom::character::complete::{char, line_ending, space0};
 use nom::combinator::{map_opt, map_res, value};
-use nom::error::{ErrorKind, ParseError, VerboseError};
+use nom::error::{convert_error, ErrorKind, VerboseError};
 use nom::multi::many1;
 use nom::sequence::{delimited, preceded, terminated};
 use nom::{
@@ -10,8 +10,11 @@ use nom::{
     character::complete::digit1,
     combinator::{map, opt},
     sequence::tuple,
-    IResult,
+    Finish, IResult,
 };
+use thiserror::Error;
+
+pub type Err<'a> = VerboseError<&'a str>;
 
 type Err<'a> = VerboseError<&'a str>;
 
@@ -165,7 +168,9 @@ fn parse_separator(input: &str) -> IResult<&str, &str, Err> {
     preceded(opt(char(',')), space0)(input)
 }
 
-const INSTRUCTIONS: &[(Instr, fn(&str) -> IResult<&str, Args, Err>); 45] = &[
+type ParseArgs = fn(&str) -> IResult<&str, Args, Err>;
+
+const INSTRUCTIONS: &[(Instr, ParseArgs); 45] = &[
     (Instr::Lsls, parse_rd_rm_imm5),
     (Instr::Lsrs, parse_rd_rm_imm5),
     (Instr::Asrs, parse_rd_rm_imm5),
@@ -232,7 +237,10 @@ const fn generate_instructions_parser() -> fn(&str) -> IResult<&str, FullInstr, 
             // we cannot nom::branch::alt here because it requires a tuple
             // so we manually implement the alt combinator
             .fold(
-                Err(nom::Err::Error(Err::from_error_kind(input, ErrorKind::Alt))),
+                Err(nom::Err::Error(nom::error::ParseError::from_error_kind(
+                    input,
+                    ErrorKind::Alt,
+                ))),
                 |acc, mut f| match acc {
                     Ok((i, o)) => Ok((i, o)),
                     Err(_) => f(input),
@@ -272,22 +280,32 @@ pub fn parse_line(input: &str) -> IResult<&str, ParsedLine, Err> {
     )(input)
 }
 
-pub fn parse_lines(input: &str) -> IResult<&str, Vec<ParsedLine>, Err> {
-    many1(parse_line)(input).map(|(i, o)| {
-        (
-            i,
-            o.into_iter().filter(|l| l != &ParsedLine::None).collect(),
-        )
-    })
+#[derive(Error, Debug)]
+pub enum ParseError {
+    #[error("nom error: {json}")]
+    NomError { input: String, json: String },
+}
+
+pub fn parse_lines(input: &str) -> Result<Vec<ParsedLine>, ParseError> {
+    many1(parse_line)(input)
+        .map(|(i, o)| {
+            (
+                i,
+                o.into_iter().filter(|l| l != &ParsedLine::None).collect(),
+            )
+        })
+        .finish()
+        .map(|(_, o)| o)
+        .map_err(|e| ParseError::NomError {
+            input: input.to_owned(),
+            json: convert_error(input, e),
+        })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::instructions::{Immediate3, Immediate5, Immediate7W, Immediate8, Immediate8W};
-    use nom::error::convert_error;
-    use nom::Finish;
-
     #[test]
     fn lsls() {
         let input = "lsls r0, r1, #4";
@@ -385,12 +403,9 @@ mod tests {
                 args: Args::RdRmImm5(Reg::R3, Reg::R7, Immediate5::new(15).unwrap()),
             }),
         ];
-        let res = parse_lines(input);
+        let res = parse_lines(input).unwrap();
 
-        match res.finish() {
-            Ok((_, lines)) => assert_eq!(expected, lines.as_slice()),
-            Err(e) => panic!("Error: {}", convert_error(input, e)),
-        }
+        assert_eq!(expected, res.as_slice());
     }
 
     #[test]
@@ -441,7 +456,7 @@ mod tests {
             }),
         ];
         let res = parse_lines(input).unwrap();
-        assert_eq!(expected, res.1.as_slice())
+        assert_eq!(expected, res.as_slice())
     }
 
     #[test]
@@ -517,7 +532,7 @@ mod tests {
             }),
         ];
         let res = parse_lines(input).unwrap();
-        assert_eq!(expected, res.1);
+        assert_eq!(expected, res);
     }
 
     #[test]
@@ -537,7 +552,7 @@ mod tests {
             }),
         ];
         let res = parse_lines(input).unwrap();
-        assert_eq!(expected, res.1);
+        assert_eq!(expected, res);
     }
 
     #[test]
