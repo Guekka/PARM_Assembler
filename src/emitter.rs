@@ -1,12 +1,12 @@
-#[allow(clippy::unusual_byte_groupings)]
-
-pub trait ToBinary {
-    fn to_binary(&self) -> BitVec<u8, Msb0>;
-}
+#![allow(clippy::unusual_byte_groupings)]
 
 use crate::instructions::*;
 
 use bitvec::prelude::*;
+
+pub trait ToBinary {
+    fn to_binary(&self) -> BitVec<u8, Msb0>;
+}
 
 impl ToBinary for Reg {
     fn to_binary(&self) -> BitVec<u8, Msb0> {
