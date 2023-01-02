@@ -225,7 +225,7 @@ const fn generate_instructions_parser() -> fn(&str) -> IResult<&str, FullInstr, 
                     )),
                     |(instr, args)| FullInstr {
                         instr: *instr,
-                        args: args,
+                        args,
                     },
                 )
             })
