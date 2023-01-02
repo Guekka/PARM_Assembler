@@ -4,12 +4,13 @@ mod logic;
 mod parser;
 mod utils;
 
+use crate::instructions::CompleteError;
 pub use crate::logic::make_program;
 pub use crate::parser::parse_lines;
 
 const HEADER: &str = "v2.0 raw\n";
 
-pub fn export_to_logisim(input: &str) -> Result<String, String> {
+pub fn export_to_logisim(input: &str) -> Result<String, CompleteError> {
     let parsed = parse_lines(input).unwrap();
     let program = make_program(parsed.1)?;
 

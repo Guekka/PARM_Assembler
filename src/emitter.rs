@@ -3,6 +3,7 @@
 pub trait ToBinary {
     fn to_binary(&self) -> BitVec<u8, Msb0>;
 }
+
 use crate::instructions::*;
 
 use bitvec::prelude::*;
@@ -17,46 +18,19 @@ impl ToBinary for Reg {
     }
 }
 
-fn imm_to_binary<const N: u8>(val: u8) -> BitVec<u8, Msb0> {
-    let mut bits = BitVec::<u8, Msb0>::new();
-    bits.resize((N) as usize, false);
-    bits.store_be(val);
-    bits
-}
-
-impl ToBinary for Immediate3 {
-    fn to_binary(&self) -> BitVec<u8, Msb0> {
-        imm_to_binary::<3>(self.0)
-    }
-}
-
-impl ToBinary for Immediate5 {
-    fn to_binary(&self) -> BitVec<u8, Msb0> {
-        imm_to_binary::<5>(self.0)
-    }
-}
-
-impl ToBinary for Immediate8 {
-    fn to_binary(&self) -> BitVec<u8, Msb0> {
-        imm_to_binary::<8>(self.0)
-    }
-}
-
-impl ToBinary for Immediate7W {
-    fn to_binary(&self) -> BitVec<u8, Msb0> {
-        imm_to_binary::<7>(self.0 / 4)
-    }
-}
-impl ToBinary for Immediate8W {
-    fn to_binary(&self) -> BitVec<u8, Msb0> {
-        imm_to_binary::<8>(self.0 / 4)
-    }
-}
-
-impl ToBinary for Immediate11 {
+impl<const N: u8, const WIDE: bool> ToBinary for Immediate<N, WIDE> {
     fn to_binary(&self) -> BitVec<u8, Msb0> {
         let mut bits = BitVec::<u8, Msb0>::new();
-        bits.resize(11, false);
+        bits.resize(N as usize, false);
+        bits.store_be(self.0);
+        bits
+    }
+}
+
+impl<const N: u8, const WIDE: bool> ToBinary for SignedImmediate<N, WIDE> {
+    fn to_binary(&self) -> BitVec<u8, Msb0> {
+        let mut bits = BitVec::<u8, Msb0>::new();
+        bits.resize(N as usize, false);
         bits.store_be(self.0);
         bits
     }
@@ -175,6 +149,9 @@ impl ToBinary for FullInstr {
                 bits.extend_from_bitslice(&args.0.to_binary());
                 bits.extend_from_bitslice(&args.1.to_binary());
             }
+            Args::Immediate8S(args) => {
+                bits.extend_from_bitslice(&args.to_binary());
+            }
         }
         bits
     }
@@ -183,6 +160,7 @@ impl ToBinary for FullInstr {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::instructions::Immediate11;
 
     #[test]
     fn reg_to_binary() {
@@ -193,14 +171,14 @@ mod tests {
 
     #[test]
     fn imm5_to_binary() {
-        let imm5 = Immediate5(4);
+        let imm5 = Immediate5::new(4).unwrap();
         let expected = bits![0, 0, 1, 0, 0];
         assert_eq!(imm5.to_binary(), expected);
     }
 
     #[test]
     fn rd_rm_imm5_to_binary() {
-        let args = RdRmImm5(Reg::R3, Reg::R4, Immediate5(7));
+        let args = RdRmImm5(Reg::R3, Reg::R4, Immediate5::new(7).unwrap());
         let expected = bits![0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1];
         assert_eq!(args.to_binary(), expected);
     }
@@ -216,7 +194,7 @@ mod tests {
     fn addsp() {
         let instr = FullInstr {
             instr: Instr::AddSp,
-            args: Args::Immediate7W(Immediate7W(4)),
+            args: Args::Immediate7W(Immediate7W::new(4).unwrap()),
         };
         let expected = bits![1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1];
         assert_eq!(instr.to_binary(), expected);
@@ -226,7 +204,7 @@ mod tests {
     fn lsls() {
         let instr = FullInstr {
             instr: Instr::Lsls,
-            args: Args::RdRmImm5(RdRmImm5(Reg::R3, Reg::R4, Immediate5(7))),
+            args: Args::RdRmImm5(RdRmImm5(Reg::R3, Reg::R4, Immediate5::new(7).unwrap())),
         };
         let expected = bits![
             0, 0, 0, 0, 0, // Lsls
@@ -241,7 +219,7 @@ mod tests {
     fn branch() {
         let instr = FullInstr {
             instr: Instr::B,
-            args: Args::Immediate11(Immediate11(0b0000_0000_010)),
+            args: Args::Immediate11(Immediate11::new(0b0000_0000_010).unwrap()),
         };
         let expected = bits![
             1, 1, 1, 0, 0, // B
@@ -254,7 +232,7 @@ mod tests {
     fn ldr() {
         let input = FullInstr {
             instr: Instr::Ldr,
-            args: Args::RtSpImm8W(RtSpImm8W(Reg::R2, Immediate8W(4))),
+            args: Args::RtSpImm8W(RtSpImm8W(Reg::R2, Immediate8W::new(4).unwrap())),
         };
         let expected = bits![
             1, 0, 0, 1, 1, // Ldr

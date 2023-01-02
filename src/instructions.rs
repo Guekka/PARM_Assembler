@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use thiserror::Error;
 
 #[derive(PartialEq, Debug, Copy, Clone)]
 #[repr(u8)]
@@ -40,23 +41,64 @@ impl TryFrom<u8> for Reg {
         Err(())
     }
 }
-#[derive(PartialEq, Debug, Copy, Clone)]
-pub struct Immediate5(pub u8);
+
+#[derive(Error, Debug)]
+pub enum ImmediateError {
+    #[error("Immediate value {0} is too large")]
+    TooLarge(i32),
+}
 
 #[derive(PartialEq, Debug, Copy, Clone)]
-pub struct Immediate8(pub u8);
+pub struct Immediate<const N: u8, const WIDE: bool>(pub u16);
+
+impl<const N: u8, const WIDE: bool> Immediate<N, WIDE> {
+    const fn lower_bound() -> u16 {
+        0
+    }
+
+    const fn upper_bound() -> u16 {
+        (1 << N) - 1
+    }
+
+    pub(crate) fn new(val: u16) -> Result<Self, ImmediateError> {
+        if val >= Self::lower_bound() && val <= Self::upper_bound() {
+            Ok(Self(if WIDE { val / 4 } else { val }))
+        } else {
+            Err(ImmediateError::TooLarge(val as i32))
+        }
+    }
+}
 
 #[derive(PartialEq, Debug, Copy, Clone)]
-pub struct Immediate7W(pub u8);
+pub struct SignedImmediate<const N: u8, const WIDE: bool>(pub i16);
 
-#[derive(PartialEq, Debug, Copy, Clone)]
-pub struct Immediate8W(pub u8);
+impl<const N: u8, const WIDE: bool> SignedImmediate<N, WIDE> {
+    const fn lower_bound() -> i16 {
+        -(1 << (N - 1))
+    }
 
-#[derive(PartialEq, Debug, Copy, Clone)]
-pub struct Immediate3(pub u8);
+    const fn upper_bound() -> i16 {
+        (1 << (N - 1)) - 1
+    }
 
-#[derive(PartialEq, Debug, Copy, Clone)]
-pub struct Immediate11(pub u16);
+    pub(crate) fn new(val: i16) -> Result<Self, ImmediateError> {
+        if val >= Self::lower_bound() && val <= Self::upper_bound() {
+            Ok(Self(if WIDE { val / 4 } else { val }))
+        } else {
+            Err(ImmediateError::TooLarge(val as i32))
+        }
+    }
+}
+
+pub type Immediate3 = Immediate<3, false>;
+pub type Immediate5 = Immediate<5, false>;
+pub type Immediate8 = Immediate<8, false>;
+pub type Immediate11 = SignedImmediate<11, false>;
+
+pub type Immediate8S = SignedImmediate<8, false>;
+
+pub type Immediate7W = Immediate<7, true>;
+pub type Immediate8W = Immediate<8, true>;
 
 #[derive(PartialEq, Debug, Copy, Clone)]
 pub struct RdRmImm5(pub Reg, pub Reg, pub Immediate5);
@@ -193,6 +235,7 @@ pub enum Args {
     RdImm8(RdImm8),
     Immediate7W(Immediate7W),
     Immediate11(Immediate11),
+    Immediate8S(Immediate8S),
     TwoRegs(TwoRegs),
     RdRnImm0(RdRnImm0),
     RtSpImm8W(RtSpImm8W),
@@ -206,25 +249,42 @@ pub struct FullInstr {
 
 pub type LabelLookup = HashMap<String, usize>;
 
-fn complete_bcond(label: usize, cur_line: usize) -> Result<Args, ()> {
-    let offset = label as i16 - cur_line as i16 - 3;
-
-    i8::try_from(offset)
-        .map(|offset| Args::Immediate8(Immediate8(offset as u8)))
-        .map_err(|_| ())
+#[derive(Error, Debug)]
+pub enum CompleteError {
+    #[error("Label {0} not found")]
+    LabelNotFound(String),
+    #[error("Label {label} is too far away: {distance}")]
+    JumpTooFar { label: String, distance: i32 },
 }
 
-fn complete_buncond(label: usize, cur_line: usize) -> Result<Args, ()> {
+fn complete_bcond(label: usize, cur_line: usize) -> Result<Args, CompleteError> {
     let offset = label as i16 - cur_line as i16 - 3;
 
-    if !(-1024..=1023).contains(&offset) {
-        return Err(());
-    }
-    Ok(Args::Immediate11(Immediate11(offset as u16)))
+    let imm = Immediate8S::new(offset).map_err(|_| CompleteError::JumpTooFar {
+        label: label.to_string(),
+        distance: offset as i32,
+    })?;
+
+    Ok(Args::Immediate8S(imm))
+}
+
+fn complete_buncond(label: usize, cur_line: usize) -> Result<Args, CompleteError> {
+    let offset = label as i16 - cur_line as i16 - 3;
+
+    let imm = Immediate11::new(offset).map_err(|_| CompleteError::JumpTooFar {
+        label: label.to_string(),
+        distance: offset as i32,
+    })?;
+
+    Ok(Args::Immediate11(imm))
 }
 
 impl FullInstr {
-    pub fn complete(&self, cur_line: usize, labels: &LabelLookup) -> Result<FullInstr, ()> {
+    pub fn complete(
+        &self,
+        cur_line: usize,
+        labels: &LabelLookup,
+    ) -> Result<FullInstr, CompleteError> {
         let mut copy = self.clone();
         if let Args::Label(ref label) = self.args {
             if let Some(&addr) = labels.get(label) {
@@ -235,7 +295,7 @@ impl FullInstr {
                     _ => complete_bcond(addr, cur_line)?,
                 }
             } else {
-                return Err(());
+                return Err(CompleteError::LabelNotFound(label.clone()));
             }
         }
         Ok(copy)

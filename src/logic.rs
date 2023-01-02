@@ -1,6 +1,7 @@
 use crate::emitter::ToBinary;
-use crate::instructions::{LabelLookup, ParsedLine};
+use crate::instructions::{CompleteError, LabelLookup, ParsedLine};
 use bitvec::prelude::*;
+use thiserror::Error;
 
 pub fn calculate_labels(instrs: &[ParsedLine]) -> LabelLookup {
     instrs
@@ -15,7 +16,13 @@ pub fn calculate_labels(instrs: &[ParsedLine]) -> LabelLookup {
         .collect()
 }
 
-pub fn make_program(instrs: Vec<ParsedLine>) -> Result<Vec<u16>, String> {
+#[derive(Error, Debug)]
+pub enum ProgramError {
+    #[error("Could not complete instruction: {0}")]
+    CompleteError(#[from] CompleteError),
+}
+
+pub fn make_program(instrs: Vec<ParsedLine>) -> Result<Vec<u16>, CompleteError> {
     let labels = calculate_labels(&instrs);
 
     instrs
@@ -32,8 +39,7 @@ pub fn make_program(instrs: Vec<ParsedLine>) -> Result<Vec<u16>, String> {
         .inspect(|r| println!("2: {:?}", r))
         .map(|r| r.map(|b| b.load_be::<u16>()))
         .inspect(|r| println!("3: {:?}", r))
-        .collect::<Result<Vec<u16>, ()>>()
-        .map_err(|_| "Error".to_owned())
+        .collect::<Result<Vec<u16>, CompleteError>>()
 }
 
 #[cfg(test)]
@@ -48,7 +54,7 @@ mod tests {
     fn test_simple_program() {
         let instrs = vec![ParsedLine::Instr(FullInstr {
             instr: Instr::Lsrs,
-            args: Args::RdRmImm5(RdRmImm5(R0, R1, Immediate5(5))),
+            args: Args::RdRmImm5(RdRmImm5(R0, R1, Immediate5::new(5).unwrap())),
         })];
 
         let program = make_program(instrs).unwrap();
@@ -61,7 +67,7 @@ mod tests {
             ParsedLine::Label("label1".to_owned()),
             ParsedLine::Instr(FullInstr {
                 instr: Instr::Lsrs,
-                args: Args::RdRmImm5(RdRmImm5(R0, R1, Immediate5(5))),
+                args: Args::RdRmImm5(RdRmImm5(R0, R1, Immediate5::new(5).unwrap())),
             }),
             ParsedLine::Instr(FullInstr {
                 instr: Instr::Bal,
@@ -69,7 +75,7 @@ mod tests {
             }),
             ParsedLine::Instr(FullInstr {
                 instr: Instr::Lsls,
-                args: Args::RdRmImm5(RdRmImm5(R4, R5, Immediate5(2))),
+                args: Args::RdRmImm5(RdRmImm5(R4, R5, Immediate5::new(2).unwrap())),
             }),
             ParsedLine::Label("label2".to_owned()),
             ParsedLine::Instr(FullInstr {
