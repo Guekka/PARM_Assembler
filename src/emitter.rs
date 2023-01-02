@@ -98,54 +98,27 @@ impl ToBinary for Instr {
 
 impl ToBinary for Args {
     fn to_binary(&self) -> BitVec<u8, Msb0> {
-        let mut bits = BitVec::<u8, Msb0>::new();
-        match self {
-            Args::RdRmImm5(rd, rm, imm5) => {
-                bits.extend_from_bitslice(&imm5.to_binary());
-                bits.extend_from_bitslice(&rm.to_binary());
-                bits.extend_from_bitslice(&rd.to_binary());
-            }
-            Args::Immediate8(imm8) => {
-                bits.extend_from_bitslice(&imm8.to_binary());
-            }
-            Args::RdRnImm3(rd, rn, imm3) => {
-                bits.extend_from_bitslice(&imm3.to_binary());
-                bits.extend_from_bitslice(&rn.to_binary());
-                bits.extend_from_bitslice(&rd.to_binary());
-            }
+        let order: Vec<&dyn ToBinary> = match &self {
+            Args::RdRmImm5(ref rd, ref rm, ref imm5) => vec![imm5, rm, rd],
+            Args::Immediate8(imm8) => vec![imm8],
+            Args::RdRnImm3(rd, rn, imm3) => vec![imm3, rn, rd],
             Args::Label(_) => panic!("Label not resolved"),
-            Args::RdRnRm(rd, rn, rm) => {
-                bits.extend_from_bitslice(&rm.to_binary());
-                bits.extend_from_bitslice(&rn.to_binary());
-                bits.extend_from_bitslice(&rd.to_binary());
-            }
-            Args::RdImm8(rd, imm8) => {
-                bits.extend_from_bitslice(&rd.to_binary());
-                bits.extend_from_bitslice(&imm8.to_binary());
-            }
-            Args::Immediate7W(imm7w) => {
-                bits.extend_from_bitslice(&imm7w.to_binary());
-            }
-            Args::TwoRegs(r1, r2) => {
-                bits.extend_from_bitslice(&r2.to_binary());
-                bits.extend_from_bitslice(&r1.to_binary());
-            }
-            Args::RdRnImm0(rd, rn) => {
-                bits.extend_from_bitslice(&rn.to_binary());
-                bits.extend_from_bitslice(&rd.to_binary());
-            }
-            Args::Immediate11(imm11) => {
-                bits.extend_from_bitslice(&imm11.to_binary());
-            }
-            Args::RtSpImm8W(rt, imm8w) => {
-                bits.extend_from_bitslice(&rt.to_binary());
-                bits.extend_from_bitslice(&imm8w.to_binary());
-            }
-            Args::Immediate8S(args) => {
-                bits.extend_from_bitslice(&args.to_binary());
-            }
-        }
-        bits
+            Args::RdRnRm(rd, rn, rm) => vec![rm, rn, rd],
+            Args::RdImm8(rd, imm8) => vec![rd, imm8],
+            Args::Immediate7W(imm7w) => vec![imm7w],
+            Args::TwoRegs(r1, r2) => vec![r2, r1],
+            Args::RdRnImm0(rd, rn) => vec![rn, rd],
+            Args::Immediate11(imm11) => vec![imm11],
+            Args::RtSpImm8W(rt, imm8w) => vec![rt, imm8w],
+            Args::Immediate8S(imm8s) => vec![imm8s],
+        };
+        order
+            .into_iter()
+            .map(|x| x.to_binary())
+            .fold(BitVec::<u8, Msb0>::new(), |mut acc, x| {
+                acc.extend(x);
+                acc
+            })
     }
 }
 
