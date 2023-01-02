@@ -1,7 +1,7 @@
 use crate::instructions::{Args, FullInstr, Immediate, Immediate8, Instr, Reg};
 use crate::utils::Appliable;
 use nom::bytes::complete::{tag_no_case, take_till, take_while};
-use nom::character::complete::{char, line_ending, space0};
+use nom::character::complete::{char, line_ending, multispace1, space0};
 use nom::combinator::{map_opt, map_res, value};
 use nom::error::{convert_error, ErrorKind, VerboseError};
 use nom::multi::many1;
@@ -11,7 +11,7 @@ use nom::{
     character::complete::digit1,
     combinator::{map, opt},
     sequence::tuple,
-    Finish, IResult,
+    Finish, IResult, Parser,
 };
 use thiserror::Error;
 
@@ -295,7 +295,12 @@ pub fn parse_line(input: &str) -> IResult<&str, ParsedLine, Err> {
             }),
             map(preceded(space0, parse_instr), ParsedLine::Instr),
             value(ParsedLine::None, parse_comment),
-            value(ParsedLine::None, space0),
+            value(ParsedLine::None, multispace1),
+            // If something starts with a dot and is not a label, it's probably a directive we can ignore
+            value(
+                ParsedLine::None,
+                preceded(char('.'), take_till(|c| c == '\n')),
+            ),
         )),
         opt(parse_end_of_line),
     )(input)
@@ -316,8 +321,6 @@ pub fn parse_lines(input: &str) -> Result<Vec<ParsedLine>, ParseError> {
                 .filter(|l| l != &ParsedLine::None)
                 .collect()
         })
-        .finish()
-        .map(|(_, o)| o)
         .map_err(|e| ParseError::NomError {
             input: input.to_owned(),
             json: convert_error(input, e),
