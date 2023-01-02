@@ -283,6 +283,13 @@ pub fn parse_end_of_line(input: &str) -> IResult<&str, (), Err> {
     terminated(value((), space0), line_ending)(input)
 }
 
+#[derive(PartialEq, Debug, Clone)]
+pub enum ParsedLine {
+    Instr(FullInstr),
+    Label(String),
+    None,
+}
+
 pub fn parse_line(input: &str) -> IResult<&str, ParsedLine, Err> {
     if input.is_empty() {
         return Err(nom::Err::Error(VerboseError { errors: vec![] }));

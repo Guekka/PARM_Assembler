@@ -1,5 +1,6 @@
 use crate::emitter::ToBinary;
-use crate::instructions::{CompleteError, LabelLookup, ParsedLine};
+use crate::instructions::{CompleteError, LabelLookup};
+use crate::parser::ParsedLine;
 use bitvec::prelude::*;
 use thiserror::Error;
 
