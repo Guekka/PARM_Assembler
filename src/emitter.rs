@@ -36,63 +36,9 @@ impl<const N: u8, const WIDE: bool> ToBinary for SignedImmediate<N, WIDE> {
     }
 }
 
-fn binary_bit_count(instr: &Instr) -> u8 {
-    match instr {
-        Instr::Lsls => 5,
-        Instr::Lsrs => 5,
-        Instr::Asrs => 5,
-        Instr::Adds => 7,
-        Instr::Subs => 7,
-        Instr::Adds2 => 7,
-        Instr::Subs2 => 7,
-        Instr::Movs => 3,
-        Instr::Str => 5,
-        Instr::Ldr => 5,
-        Instr::AddSp => 9,
-        Instr::SubSp => 9,
-        Instr::Ands => 10,
-        Instr::Eors => 10,
-        Instr::Lsls2 => 10,
-        Instr::Lsrs2 => 10,
-        Instr::Asrs2 => 10,
-        Instr::Adcs => 10,
-        Instr::Sbcs => 10,
-        Instr::Rors => 10,
-        Instr::Tst => 10,
-        Instr::Cmn => 10,
-        Instr::Orrs => 10,
-        Instr::Muls => 10,
-        Instr::Bics => 10,
-        Instr::Mvns => 10,
-        Instr::Cmp => 10,
-        Instr::Rsbs => 10,
-        Instr::B => 5,
-        Instr::Beq => 8,
-        Instr::Bne => 8,
-        Instr::Bcs => 8,
-        Instr::Bcc => 8,
-        Instr::Bmi => 8,
-        Instr::Bpl => 8,
-        Instr::Bvs => 8,
-        Instr::Bvc => 8,
-        Instr::Bhi => 8,
-        Instr::Bls => 8,
-        Instr::Bge => 8,
-        Instr::Blt => 8,
-        Instr::Bgt => 8,
-        Instr::Ble => 8,
-        Instr::Bal => 8,
-    }
-}
-
 impl ToBinary for Instr {
     fn to_binary(&self) -> BitVec<u8, Msb0> {
-        let val = *self as u16;
-        let bit_count = binary_bit_count(self) as usize;
-        let mut bits = BitVec::<u8, Msb0>::with_capacity(bit_count);
-        bits.resize(bit_count, false);
-        bits.store_be(val);
-        bits
+        self.bits()
     }
 }
 
