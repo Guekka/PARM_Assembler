@@ -309,11 +309,12 @@ pub enum ParseError {
 
 pub fn parse_lines(input: &str) -> Result<Vec<ParsedLine>, ParseError> {
     many1(parse_line)(input)
-        .map(|(i, o)| {
-            (
-                i,
-                o.into_iter().filter(|l| l != &ParsedLine::None).collect(),
-            )
+        .finish()
+        .map(|(_, lines)| {
+            lines
+                .into_iter()
+                .filter(|l| l != &ParsedLine::None)
+                .collect()
         })
         .finish()
         .map(|(_, o)| o)
