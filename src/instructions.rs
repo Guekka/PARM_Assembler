@@ -58,7 +58,8 @@ impl<const N: u8, const WIDE: bool> Immediate<N, WIDE> {
     }
 
     const fn upper_bound() -> u16 {
-        (1 << N) - 1
+        let offset = if WIDE { 2 } else { 0 };
+        (1 << (N + offset)) - 1
     }
 
     pub(crate) fn new(val: u16) -> Result<Self, ImmediateError> {
@@ -75,11 +76,13 @@ pub struct SignedImmediate<const N: u8, const WIDE: bool>(pub i16);
 
 impl<const N: u8, const WIDE: bool> SignedImmediate<N, WIDE> {
     const fn lower_bound() -> i16 {
-        -(1 << (N - 1))
+        let offset = if WIDE { 2 } else { 0 };
+        -(1 << (N + offset - 1))
     }
 
     const fn upper_bound() -> i16 {
-        (1 << (N - 1)) - 1
+        let offset = if WIDE { 2 } else { 0 };
+        (1 << (N + offset - 1)) - 1
     }
 
     pub(crate) fn new(val: i16) -> Result<Self, ImmediateError> {
@@ -156,8 +159,8 @@ impl Instr {
             Instr::Movs => "movs",
             Instr::Str => "str",
             Instr::Ldr => "ldr",
-            Instr::AddSp => "add sp",
-            Instr::SubSp => "sub sp",
+            Instr::AddSp => "add",
+            Instr::SubSp => "sub",
             Instr::Ands => "ands",
             Instr::Eors => "eors",
             Instr::Lsls2 => "lsls",

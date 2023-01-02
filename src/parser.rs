@@ -1,4 +1,4 @@
-use crate::instructions::{Args, FullInstr, Immediate, Immediate8, Instr, ParsedLine, Reg};
+use crate::instructions::{Args, FullInstr, Immediate, Immediate8, Instr, Reg};
 use crate::utils::Appliable;
 use nom::bytes::complete::{tag_no_case, take_till, take_while};
 use nom::character::complete::{char, line_ending, space0};
@@ -88,10 +88,14 @@ fn parse_rd_imm8(input: &str) -> IResult<&str, Args, Err> {
     )(input)
 }
 
-fn parse_imm7(input: &str) -> IResult<&str, Args, Err> {
-    map(preceded(parse_separator, Immediate::parse), |imm7| {
-        Args::Immediate7W(imm7)
-    })(input)
+fn parse_sp_imm7(input: &str) -> IResult<&str, Args, Err> {
+    map(
+        preceded(
+            tuple((parse_separator, tag_no_case("sp"), parse_separator)),
+            Immediate::parse,
+        ),
+        Args::Immediate7W,
+    )(input)
 }
 
 fn parse_two_regs(input: &str) -> IResult<&str, Args, Err> {
@@ -146,7 +150,9 @@ fn parse_rt_sp_imm8(input: &str) -> IResult<&str, Args, Err> {
                 parse_separator,
                 delimited(
                     tag_no_case("[sp"),
-                    preceded(parse_separator, Immediate::parse),
+                    map(opt(preceded(parse_separator, Immediate::parse)), |i| {
+                        i.or_else(|| Some(Immediate::new(0).unwrap())).unwrap()
+                    }),
                     char(']'),
                 ),
             ),
@@ -218,8 +224,8 @@ const INSTRUCTIONS: &[(Instr, ParseArgs); 45] = &[
     (Instr::Mvns, parse_two_regs),
     (Instr::Str, parse_rt_sp_imm8),
     (Instr::Ldr, parse_rt_sp_imm8),
-    (Instr::AddSp, parse_imm7),
-    (Instr::SubSp, parse_imm7),
+    (Instr::AddSp, parse_sp_imm7),
+    (Instr::SubSp, parse_sp_imm7),
     (Instr::Beq, parse_label_args),
     (Instr::Bne, parse_label_args),
     (Instr::Bcs, parse_label_args),
@@ -590,6 +596,37 @@ mod tests {
             args: Args::RtSpImm8W(Reg::R2, Immediate8W::new(4).unwrap()),
         });
         let res = parse_line(input).unwrap();
+        assert_eq!(expected, res.1);
+    }
+
+    #[test]
+    fn sub() {
+        let input = r#"
+run:
+	sub     sp, #96"#;
+
+        let expected = vec![
+            ParsedLine::Label("run".to_owned()),
+            ParsedLine::Instr(FullInstr {
+                instr: Instr::SubSp,
+                args: Args::Immediate7W(Immediate7W::new(96).unwrap()),
+            }),
+        ];
+        let res = parse_lines(input).unwrap();
+        assert_eq!(expected, res);
+    }
+
+    #[test]
+    fn str() {
+        let input = "	str	r0, [sp]";
+
+        let expected = ParsedLine::Instr(FullInstr {
+            instr: Instr::Str,
+            args: Args::RtSpImm8W(Reg::R0, Immediate8W::new(0).unwrap()),
+        });
+
+        let res = parse_line(input).unwrap();
+
         assert_eq!(expected, res.1);
     }
 }
