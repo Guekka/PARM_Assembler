@@ -11,7 +11,7 @@ use nom::{
     character::complete::digit1,
     combinator::{map, opt},
     sequence::tuple,
-    Finish, IResult, Parser,
+    Finish, IResult,
 };
 use thiserror::Error;
 
@@ -36,7 +36,7 @@ impl<const N: u8, const WIDE: bool> Parseable for Immediate<N, WIDE> {
             preceded(
                 char('#'),
                 map_res(
-                    take_while(|c: char| c.is_ascii_hexdigit()),
+                    take_while(|c: char| c.is_numeric()),
                     str::parse::<u16>,
                 ),
             ),
