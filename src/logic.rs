@@ -4,7 +4,7 @@ use crate::parser::ParsedLine;
 use bitvec::prelude::*;
 use thiserror::Error;
 
-pub fn calculate_labels(instrs: &[ParsedLine]) -> LabelLookup {
+fn calculate_labels(instrs: &[ParsedLine]) -> LabelLookup {
     instrs
         .iter()
         .enumerate()
@@ -18,12 +18,12 @@ pub fn calculate_labels(instrs: &[ParsedLine]) -> LabelLookup {
 }
 
 #[derive(Error, Debug)]
-pub enum ProgramError {
+pub(crate) enum ProgramError {
     #[error("Could not complete instruction: {0}")]
     CompleteError(#[from] CompleteError),
 }
 
-pub fn make_program(instrs: Vec<ParsedLine>) -> Result<Vec<u16>, CompleteError> {
+pub(crate) fn make_program(instrs: Vec<ParsedLine>) -> Result<Vec<u16>, CompleteError> {
     let labels = calculate_labels(&instrs);
 
     instrs

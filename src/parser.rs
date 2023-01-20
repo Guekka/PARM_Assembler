@@ -15,7 +15,7 @@ use nom::{
 };
 use thiserror::Error;
 
-pub type Err<'a> = VerboseError<&'a str>;
+pub(crate) type Err<'a> = VerboseError<&'a str>;
 
 trait Parseable: Sized {
     fn parse(input: &str) -> IResult<&str, Self, Err>;
@@ -181,6 +181,7 @@ fn parse_separator(input: &str) -> IResult<&str, &str, Err> {
 
 type ParseArgs = fn(&str) -> IResult<&str, Args, Err>;
 
+/// The full list of supported instructions.
 const INSTRUCTIONS: &[(Instr, ParseArgs); 45] = &[
     (Instr::Lsls, parse_rd_rm_imm5),
     (Instr::Lsrs, parse_rd_rm_imm5),
@@ -229,6 +230,7 @@ const INSTRUCTIONS: &[(Instr, ParseArgs); 45] = &[
     (Instr::B, parse_label_args),
 ];
 
+/// Generates a parser for parsing the instructions
 const fn generate_instructions_parser() -> fn(&str) -> IResult<&str, FullInstr, Err> {
     move |input: &str| {
         INSTRUCTIONS
@@ -262,26 +264,27 @@ const fn generate_instructions_parser() -> fn(&str) -> IResult<&str, FullInstr, 
 
 const PARSE_INSTRUCTION: fn(&str) -> IResult<&str, FullInstr, Err> = generate_instructions_parser();
 
-pub fn parse_instr(input: &str) -> IResult<&str, FullInstr, Err> {
+/// Parses a single instruction.
+fn parse_instr(input: &str) -> IResult<&str, FullInstr, Err> {
     PARSE_INSTRUCTION(input)
 }
 
-pub fn parse_comment(input: &str) -> IResult<&str, &str, Err> {
+fn parse_comment(input: &str) -> IResult<&str, &str, Err> {
     preceded(preceded(space0, char('@')), take_till(|c| c == '\n'))(input)
 }
 
-pub fn parse_end_of_line(input: &str) -> IResult<&str, (), Err> {
+fn parse_end_of_line(input: &str) -> IResult<&str, (), Err> {
     terminated(value((), space0), line_ending)(input)
 }
 
 #[derive(PartialEq, Debug, Clone)]
-pub enum ParsedLine {
+pub(crate) enum ParsedLine {
     Instr(FullInstr),
     Label(String),
     None,
 }
 
-pub fn parse_line(input: &str) -> IResult<&str, ParsedLine, Err> {
+fn parse_line(input: &str) -> IResult<&str, ParsedLine, Err> {
     if input.is_empty() {
         return Err(nom::Err::Error(VerboseError { errors: vec![] }));
     }
@@ -309,7 +312,7 @@ pub enum ParseError {
     NomError { input: String, json: String },
 }
 
-pub fn parse_lines(input: &str) -> Result<Vec<ParsedLine>, ParseError> {
+pub(crate) fn parse_lines(input: &str) -> Result<Vec<ParsedLine>, ParseError> {
     many1(parse_line)(input)
         .finish()
         .map(|(_, lines)| {

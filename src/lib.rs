@@ -5,9 +5,9 @@ mod parser;
 mod utils;
 
 use crate::instructions::CompleteError;
-pub use crate::logic::make_program;
-pub use crate::parser::parse_lines;
 
+use crate::logic::make_program;
+use crate::parser::parse_lines;
 use thiserror::Error;
 
 const HEADER: &str = "v2.0 raw\n";
@@ -20,6 +20,13 @@ pub enum ExportError {
     ParseError(#[from] parser::ParseError),
 }
 
+/// Assembles the given lines of assembly code into a binary program in logisim format.
+///
+/// # Arguments
+///
+/// * `input`: A list of ARM instructions, one per line.
+///
+/// returns: A string containing the binary representation of the program, in logisim format.
 pub fn export_to_logisim(input: &str) -> Result<String, ExportError> {
     let parsed = parse_lines(input)?;
     let program = make_program(parsed)?;

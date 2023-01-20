@@ -1,17 +1,16 @@
 #![allow(clippy::unusual_byte_groupings)]
 
 use crate::instructions::*;
-
-use bitvec::prelude::*;
+use bitvec::field::BitField;
 
 pub trait ToBinary {
-    fn to_binary(&self) -> BitVec<u8, Msb0>;
+    fn to_binary(&self) -> BitVec;
 }
 
 impl ToBinary for Reg {
-    fn to_binary(&self) -> BitVec<u8, Msb0> {
+    fn to_binary(&self) -> BitVec {
         let val = *self as u8;
-        let mut bits = BitVec::<u8, Msb0>::new();
+        let mut bits = BitVec::new();
         bits.resize(3, false);
         bits.store_be(val);
         bits
@@ -19,8 +18,8 @@ impl ToBinary for Reg {
 }
 
 impl<const N: u8, const WIDE: bool> ToBinary for Immediate<N, WIDE> {
-    fn to_binary(&self) -> BitVec<u8, Msb0> {
-        let mut bits = BitVec::<u8, Msb0>::new();
+    fn to_binary(&self) -> BitVec {
+        let mut bits = BitVec::new();
         bits.resize(N as usize, false);
         bits.store_be(self.0);
         bits
@@ -28,8 +27,8 @@ impl<const N: u8, const WIDE: bool> ToBinary for Immediate<N, WIDE> {
 }
 
 impl<const N: u8, const WIDE: bool> ToBinary for SignedImmediate<N, WIDE> {
-    fn to_binary(&self) -> BitVec<u8, Msb0> {
-        let mut bits = BitVec::<u8, Msb0>::new();
+    fn to_binary(&self) -> BitVec {
+        let mut bits = BitVec::new();
         bits.resize(N as usize, false);
         bits.store_be(self.0);
         bits
@@ -37,16 +36,15 @@ impl<const N: u8, const WIDE: bool> ToBinary for SignedImmediate<N, WIDE> {
 }
 
 impl ToBinary for Instr {
-    fn to_binary(&self) -> BitVec<u8, Msb0> {
+    fn to_binary(&self) -> BitVec {
         self.bits()
     }
 }
 
 impl ToBinary for Args {
-    fn to_binary(&self) -> BitVec<u8, Msb0> {
+    fn to_binary(&self) -> BitVec {
         let order: Vec<&dyn ToBinary> = match &self {
             Args::RdRmImm5(ref rd, ref rm, ref imm5) => vec![imm5, rm, rd],
-            Args::Immediate8(imm8) => vec![imm8],
             Args::RdRnImm3(rd, rn, imm3) => vec![imm3, rn, rd],
             Args::Label(_) => panic!("Label not resolved"),
             Args::RdRnRm(rd, rn, rm) => vec![rm, rn, rd],
@@ -61,7 +59,7 @@ impl ToBinary for Args {
         order
             .into_iter()
             .map(|x| x.to_binary())
-            .fold(BitVec::<u8, Msb0>::new(), |mut acc, x| {
+            .fold(BitVec::new(), |mut acc, x| {
                 acc.extend(x);
                 acc
             })
@@ -69,7 +67,7 @@ impl ToBinary for Args {
 }
 
 impl ToBinary for FullInstr {
-    fn to_binary(&self) -> BitVec<u8, Msb0> {
+    fn to_binary(&self) -> BitVec {
         let mut bits = self.instr.to_binary();
         bits.extend_from_bitslice(&self.args.to_binary());
         bits
@@ -81,32 +79,34 @@ mod tests {
     use super::*;
     use crate::instructions::Args::RdRmImm5;
     use crate::instructions::Immediate11;
+    use bitvec::bits;
+    use bitvec::order::Msb0;
 
     #[test]
     fn reg_to_binary() {
         let reg = Reg::R3;
-        let expected = bits![0, 1, 1];
+        let expected = bits![u8, Msb0; 0, 1, 1];
         assert_eq!(reg.to_binary(), expected);
     }
 
     #[test]
     fn imm5_to_binary() {
         let imm5 = Immediate5::new(4).unwrap();
-        let expected = bits![0, 0, 1, 0, 0];
+        let expected = bits![u8, Msb0; 0, 0, 1, 0, 0];
         assert_eq!(imm5.to_binary(), expected);
     }
 
     #[test]
     fn rd_rm_imm5_to_binary() {
         let args = RdRmImm5(Reg::R3, Reg::R4, Immediate5::new(7).unwrap());
-        let expected = bits![0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1];
+        let expected = bits![u8, Msb0; 0, 0, 1, 1, 1, 1, 0, 0, 0, 1, 1];
         assert_eq!(args.to_binary(), expected);
     }
 
     #[test]
     fn instr_to_binary() {
         let instr = Instr::Lsrs;
-        let expected = bits![0, 0, 0, 0, 1];
+        let expected = bits![u8, Msb0; 0, 0, 0, 0, 1];
         assert_eq!(instr.to_binary(), expected);
     }
 
@@ -116,7 +116,7 @@ mod tests {
             instr: Instr::AddSp,
             args: Args::Immediate7W(Immediate7W::new(4).unwrap()),
         };
-        let expected = bits![1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1];
+        let expected = bits![u8, Msb0; 1, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1];
         assert_eq!(instr.to_binary(), expected);
     }
 
@@ -127,6 +127,7 @@ mod tests {
             args: Args::RdRmImm5(Reg::R3, Reg::R4, Immediate5::new(7).unwrap()),
         };
         let expected = bits![
+            u8, Msb0;
             0, 0, 0, 0, 0, // Lsls
             0, 0, 1, 1, 1, // Imm5
             1, 0, 0, // Rm
@@ -142,6 +143,7 @@ mod tests {
             args: Args::Immediate11(Immediate11::new(0b0000_0000_010).unwrap()),
         };
         let expected = bits![
+            u8, Msb0;
             1, 1, 1, 0, 0, // B
             0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0 // Imm11
         ];
@@ -155,6 +157,7 @@ mod tests {
             args: Args::RtSpImm8W(Reg::R2, Immediate8W::new(4).unwrap()),
         };
         let expected = bits![
+            u8, Msb0;
             1, 0, 0, 1, 1, // Ldr
             0, 1, 0, // Rt
             0, 0, 0, 0, 0, 0, 0, 1, // Imm8

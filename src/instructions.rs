@@ -1,10 +1,11 @@
-use bitvec::prelude::*;
+use bitvec::bitvec;
+use bitvec::prelude::Msb0;
 use std::collections::HashMap;
 use thiserror::Error;
 
 #[derive(PartialEq, Debug, Copy, Clone)]
 #[repr(u8)]
-pub enum Reg {
+pub(crate) enum Reg {
     R0 = 0,
     R1 = 1,
     R2 = 2,
@@ -44,13 +45,13 @@ impl TryFrom<u8> for Reg {
 }
 
 #[derive(Error, Debug)]
-pub enum ImmediateError {
+pub(crate) enum ImmediateError {
     #[error("Immediate value {0} is too large")]
     TooLarge(i32),
 }
 
 #[derive(PartialEq, Debug, Copy, Clone)]
-pub struct Immediate<const N: u8, const WIDE: bool>(pub u16);
+pub(crate) struct Immediate<const N: u8, const WIDE: bool>(pub u16);
 
 impl<const N: u8, const WIDE: bool> Immediate<N, WIDE> {
     const fn lower_bound() -> u16 {
@@ -95,7 +96,7 @@ impl<const N: u8, const WIDE: bool> SignedImmediate<N, WIDE> {
 }
 
 #[derive(PartialEq, Debug, Copy, Clone)]
-pub enum Instr {
+pub(crate) enum Instr {
     // Shift add sub move
     Lsls,
     Lsrs,
@@ -146,8 +147,10 @@ pub enum Instr {
     B,
 }
 
+pub(crate) type BitVec = bitvec::prelude::BitVec<u8, Msb0>;
+
 impl Instr {
-    pub const fn text_instruction(&self) -> &'static str {
+    pub(crate) const fn text_instruction(&self) -> &'static str {
         match self {
             Instr::Lsls => "lsls",
             Instr::Lsrs => "lsrs",
@@ -196,7 +199,7 @@ impl Instr {
         }
     }
 
-    pub fn bits(&self) -> BitVec<u8, Msb0> {
+    pub fn bits(&self) -> BitVec {
         use Instr::*;
         match &self {
             Lsls => bitvec![u8, Msb0; 0, 0, 0, 0, 0],
@@ -250,21 +253,20 @@ impl Instr {
     }
 }
 
-pub type Immediate3 = Immediate<3, false>;
-pub type Immediate5 = Immediate<5, false>;
-pub type Immediate8 = Immediate<8, false>;
-pub type Immediate11 = SignedImmediate<11, false>;
+pub(crate) type Immediate3 = Immediate<3, false>;
+pub(crate) type Immediate5 = Immediate<5, false>;
+pub(crate) type Immediate8 = Immediate<8, false>;
+pub(crate) type Immediate11 = SignedImmediate<11, false>;
 
-pub type Immediate8S = SignedImmediate<8, false>;
+pub(crate) type Immediate8S = SignedImmediate<8, false>;
 
-pub type Immediate7W = Immediate<7, true>;
-pub type Immediate8W = Immediate<8, true>;
+pub(crate) type Immediate7W = Immediate<7, true>;
+pub(crate) type Immediate8W = Immediate<8, true>;
 
 #[derive(PartialEq, Debug, Clone)]
-pub enum Args {
+pub(crate) enum Args {
     Immediate11(Immediate11),
     Immediate7W(Immediate7W),
-    Immediate8(Immediate8),
     Immediate8S(Immediate8S),
     Label(String),
     RdImm8(Reg, Immediate8),
@@ -277,12 +279,12 @@ pub enum Args {
 }
 
 #[derive(PartialEq, Debug, Clone)]
-pub struct FullInstr {
+pub(crate) struct FullInstr {
     pub instr: Instr,
     pub args: Args,
 }
 
-pub type LabelLookup = HashMap<String, usize>;
+pub(crate) type LabelLookup = HashMap<String, usize>;
 
 #[derive(Error, Debug)]
 pub enum CompleteError {
@@ -315,7 +317,7 @@ fn complete_buncond(label: usize, cur_line: usize) -> Result<Args, CompleteError
 }
 
 impl FullInstr {
-    pub fn complete(
+    pub(crate) fn complete(
         &self,
         cur_line: usize,
         labels: &LabelLookup,
