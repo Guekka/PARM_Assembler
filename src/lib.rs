@@ -29,7 +29,7 @@ pub fn export_to_logisim(input: &str) -> Result<String, ExportError> {
 
     Ok(program
         .into_iter()
-        .map(|i| format!("{:04x}", i))
+        .map(|i| format!("{i:04x}"))
         .fold(out, |acc, i| acc + &i + " ")
         .trim()
         .to_owned())

@@ -35,10 +35,7 @@ impl<const N: u8, const WIDE: bool> Parseable for Immediate<N, WIDE> {
         map_res(
             preceded(
                 char('#'),
-                map_res(
-                    take_while(|c: char| c.is_numeric()),
-                    str::parse::<u16>,
-                ),
+                map_res(take_while(|c: char| c.is_numeric()), str::parse::<u16>),
             ),
             Immediate::<N, WIDE>::new,
         )(input)
