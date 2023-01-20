@@ -95,6 +95,7 @@ impl<const N: u8, const WIDE: bool> SignedImmediate<N, WIDE> {
     }
 }
 
+/// List of all possible instructions
 #[derive(PartialEq, Debug, Copy, Clone)]
 pub(crate) enum Instr {
     // Shift add sub move
@@ -263,6 +264,7 @@ pub(crate) type Immediate8S = SignedImmediate<8, false>;
 pub(crate) type Immediate7W = Immediate<7, true>;
 pub(crate) type Immediate8W = Immediate<8, true>;
 
+/// List of all possible instructions arguments
 #[derive(PartialEq, Debug, Clone)]
 pub(crate) enum Args {
     Immediate11(Immediate11),
@@ -294,6 +296,8 @@ pub enum CompleteError {
     JumpTooFar { label: String, distance: i32 },
 }
 
+/// Complete the instruction by replacing labels with their actual address
+/// conditional jumps can use 8 bits to encode the distance
 fn complete_bcond(label: usize, cur_line: usize) -> Result<Args, CompleteError> {
     let offset = label as i16 - cur_line as i16 - 3;
 
@@ -305,6 +309,9 @@ fn complete_bcond(label: usize, cur_line: usize) -> Result<Args, CompleteError> 
     Ok(Args::Immediate8S(imm))
 }
 
+
+/// Complete the instruction by replacing labels with their actual address
+/// Unconditional jumps can use 11 bits to encode the distance
 fn complete_buncond(label: usize, cur_line: usize) -> Result<Args, CompleteError> {
     let offset = label as i16 - cur_line as i16 - 3;
 
@@ -317,6 +324,8 @@ fn complete_buncond(label: usize, cur_line: usize) -> Result<Args, CompleteError
 }
 
 impl FullInstr {
+    /// Complete the instruction by replacing labels with their actual address
+    /// and checking that the jump is not too far away
     pub(crate) fn complete(
         &self,
         cur_line: usize,

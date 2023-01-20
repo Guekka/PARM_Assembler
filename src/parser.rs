@@ -284,6 +284,9 @@ pub(crate) enum ParsedLine {
     None,
 }
 
+/// Parses a single line of assembly code.
+/// A line can be an instruction, a label or a comment.
+/// If the line is not an instruction or a label, it is ignored.
 fn parse_line(input: &str) -> IResult<&str, ParsedLine, Err> {
     if input.is_empty() {
         return Err(nom::Err::Error(VerboseError { errors: vec![] }));

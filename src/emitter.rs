@@ -43,6 +43,8 @@ impl ToBinary for Instr {
 
 impl ToBinary for Args {
     fn to_binary(&self) -> BitVec {
+        // Each argument set has a different order for the bits.
+        // This returns the argument in the correct order.
         let order: Vec<&dyn ToBinary> = match &self {
             Args::RdRmImm5(ref rd, ref rm, ref imm5) => vec![imm5, rm, rd],
             Args::RdRnImm3(rd, rn, imm3) => vec![imm3, rn, rd],

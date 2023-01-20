@@ -4,6 +4,8 @@ use crate::parser::ParsedLine;
 use bitvec::prelude::*;
 use thiserror::Error;
 
+/// Maps labels to their addresses.
+/// The address of a label is the address of the instruction after the label.
 fn calculate_labels(instrs: &[ParsedLine]) -> LabelLookup {
     instrs
         .iter()
@@ -13,6 +15,8 @@ fn calculate_labels(instrs: &[ParsedLine]) -> LabelLookup {
             _ => None,
         })
         .enumerate()
+        // this is a bit tricky: labels do not have an address on their own
+        // so we need to substract current label index
         .map(|(label_i, (i, l))| (l, i - label_i))
         .collect()
 }
@@ -35,6 +39,7 @@ pub(crate) fn make_program(instrs: Vec<ParsedLine>) -> Result<Vec<u16>, Complete
         .enumerate()
         .map(|(i, instr)| instr.complete(i, &labels))
         .map(|r| r.map(|i| i.to_binary()))
+        // logisim uses big endian
         .map(|r| r.map(|b| b.load_be::<u16>()))
         .collect::<Result<Vec<u16>, CompleteError>>()
 }
