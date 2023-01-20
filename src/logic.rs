@@ -32,14 +32,10 @@ pub fn make_program(instrs: Vec<ParsedLine>) -> Result<Vec<u16>, CompleteError> 
             ParsedLine::Instr(i) => Some(i),
             _ => None,
         })
-        .inspect(|i| println!("0: {:?}", i))
         .enumerate()
         .map(|(i, instr)| instr.complete(i, &labels))
-        .inspect(|i| println!("1: {:?}", i))
         .map(|r| r.map(|i| i.to_binary()))
-        .inspect(|r| println!("2: {:?}", r))
         .map(|r| r.map(|b| b.load_be::<u16>()))
-        .inspect(|r| println!("3: {:?}", r))
         .collect::<Result<Vec<u16>, CompleteError>>()
 }
 
