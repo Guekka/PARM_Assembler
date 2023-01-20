@@ -1,5 +1,3 @@
-use crate::instructions::{Args, FullInstr, Immediate, Immediate8, Instr, Reg};
-use crate::utils::Appliable;
 use nom::bytes::complete::{tag_no_case, take_till, take_while};
 use nom::character::complete::{char, line_ending, multispace1, space0};
 use nom::combinator::{map_opt, map_res, value};
@@ -14,6 +12,9 @@ use nom::{
     Finish, IResult,
 };
 use thiserror::Error;
+
+use crate::instructions::{Args, FullInstr, Immediate, Immediate8, Instr, Reg};
+use crate::utils::Appliable;
 
 pub(crate) type Err<'a> = VerboseError<&'a str>;
 
@@ -262,10 +263,10 @@ const fn generate_instructions_parser() -> fn(&str) -> IResult<&str, FullInstr, 
     }
 }
 
-const PARSE_INSTRUCTION: fn(&str) -> IResult<&str, FullInstr, Err> = generate_instructions_parser();
-
 /// Parses a single instruction.
 fn parse_instr(input: &str) -> IResult<&str, FullInstr, Err> {
+    const PARSE_INSTRUCTION: fn(&str) -> IResult<&str, FullInstr, Err> =
+        generate_instructions_parser();
     PARSE_INSTRUCTION(input)
 }
 
@@ -332,8 +333,10 @@ pub(crate) fn parse_lines(input: &str) -> Result<Vec<ParsedLine>, ParseError> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use crate::instructions::{Immediate3, Immediate5, Immediate7W, Immediate8, Immediate8W};
+
+    use super::*;
+
     #[test]
     fn lsls() {
         let input = "lsls r0, r1, #4";

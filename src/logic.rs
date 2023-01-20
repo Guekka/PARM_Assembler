@@ -1,8 +1,9 @@
+use bitvec::prelude::*;
+use thiserror::Error;
+
 use crate::emitter::ToBinary;
 use crate::instructions::{CompleteError, LabelLookup};
 use crate::parser::ParsedLine;
-use bitvec::prelude::*;
-use thiserror::Error;
 
 /// Maps labels to their addresses.
 /// The address of a label is the address of the instruction after the label.
@@ -47,10 +48,12 @@ pub(crate) fn make_program(instrs: Vec<ParsedLine>) -> Result<Vec<u16>, Complete
 #[cfg(test)]
 mod tests {
     #![allow(clippy::unusual_byte_groupings)]
-    use super::*;
+
     use crate::instructions::Args::Label;
     use crate::instructions::Reg::{R0, R1, R4, R5};
     use crate::instructions::{Args, FullInstr, Immediate5, Instr};
+
+    use super::*;
 
     #[test]
     fn test_simple_program() {
@@ -100,7 +103,7 @@ mod tests {
                 0b00001_00101_001_000,
                 0b11011110_11111111, // bal to label at line 3
                 0b00000_00010_101_100,
-                0b11011110_11111010 // bal to label at line 0
+                0b11011110_11111010, // bal to label at line 0
             ]
         );
     }

@@ -1,7 +1,8 @@
 #![allow(clippy::unusual_byte_groupings)]
 
-use crate::instructions::*;
 use bitvec::field::BitField;
+
+use crate::instructions::*;
 
 pub trait ToBinary {
     fn to_binary(&self) -> BitVec;
@@ -78,11 +79,13 @@ impl ToBinary for FullInstr {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::instructions::Args::RdRmImm5;
-    use crate::instructions::Immediate11;
     use bitvec::bits;
     use bitvec::order::Msb0;
+
+    use crate::instructions::Args::RdRmImm5;
+    use crate::instructions::Immediate11;
+
+    use super::*;
 
     #[test]
     fn reg_to_binary() {

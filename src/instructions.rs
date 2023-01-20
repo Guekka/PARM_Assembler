@@ -1,6 +1,7 @@
+use std::collections::HashMap;
+
 use bitvec::bitvec;
 use bitvec::prelude::Msb0;
-use std::collections::HashMap;
 use thiserror::Error;
 
 #[derive(PartialEq, Debug, Copy, Clone)]
@@ -308,7 +309,6 @@ fn complete_bcond(label: usize, cur_line: usize) -> Result<Args, CompleteError> 
 
     Ok(Args::Immediate8S(imm))
 }
-
 
 /// Complete the instruction by replacing labels with their actual address
 /// Unconditional jumps can use 11 bits to encode the distance
