@@ -28,6 +28,10 @@ macro_rules! impl_make_appliable {
 
 impl_make_appliable!(A B C D E F G H I J K L M);
 
+pub fn unescape_string(input: &str) -> String {
+    input.replace("\\n", "\n").replace("\\\\", "\\")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

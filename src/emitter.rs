@@ -1,6 +1,8 @@
 #![allow(clippy::unusual_byte_groupings)]
 
 use bitvec::field::BitField;
+use bitvec::order::Msb0;
+use bitvec::prelude::AsBits;
 
 use crate::instructions::*;
 
@@ -74,6 +76,15 @@ impl ToBinary for FullInstr {
         let mut bits = self.instr.to_binary();
         bits.extend_from_bitslice(&self.args.to_binary());
         bits
+    }
+}
+
+impl ToBinary for LiteralPool {
+    fn to_binary(&self) -> BitVec {
+        self.data.iter().fold(BitVec::new(), |mut bits, str| {
+            bits.extend_from_bitslice(str.as_bits::<Msb0>());
+            bits
+        })
     }
 }
 

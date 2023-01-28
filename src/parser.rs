@@ -16,7 +16,7 @@ use std::fmt::{Display, Formatter};
 use thiserror::Error;
 
 use crate::instructions::{Args, FullInstr, Immediate, Immediate8, Instr, Reg};
-use crate::utils::Appliable;
+use crate::utils::{unescape_string, Appliable};
 
 pub(crate) type Err<'a> = VerboseError<&'a str>;
 
@@ -284,6 +284,21 @@ fn parse_instr(input: &str) -> IResult<&str, FullInstr, Err> {
     PARSE_INSTRUCTION(input)
 }
 
+/// Handles `.asciz` (alias `.string`)
+fn parse_string(input: &str) -> IResult<&str, String, Err> {
+    let prefix = pair(
+        alt((tag_no_case(".string"), tag_no_case(".asciz"))),
+        pair(take_till(|c| c == '"'), char('"')),
+    );
+
+    let suffix = char('"');
+
+    map(
+        delimited(prefix, take_till(|c| c == '"'), suffix),
+        unescape_string,
+    )(input)
+}
+
 fn parse_comment(input: &str) -> IResult<&str, &str, Err> {
     preceded(preceded(space0, char('@')), take_till(|c| c == '\n'))(input)
 }
@@ -304,6 +319,7 @@ fn parse_push(input: &str) -> IResult<&str, (), Err> {
 pub(crate) enum ParsedLine {
     Instr(FullInstr),
     Label(String),
+    String(String),
     None,
 }
 
@@ -323,6 +339,7 @@ fn parse_line(input: &str) -> IResult<&str, ParsedLine, Err> {
                 ParsedLine::Label(s.to_owned())
             }),
             map(preceded(space0, parse_instr), ParsedLine::Instr),
+            map(preceded(space0, parse_string), ParsedLine::String),
             value(ParsedLine::None, parse_push),
             value(ParsedLine::None, parse_comment),
             value(ParsedLine::None, multispace1),
@@ -695,6 +712,17 @@ run:
             instr: Instr::Str,
             args: Args::RtSpImm8W(Reg::R0, Immediate8W::new(0).unwrap()),
         });
+
+        let res = parse_line(input).unwrap();
+
+        assert_eq!(expected, res.1);
+    }
+
+    #[test]
+    fn string() {
+        let input = r#".asciz  "  _____        _____  __  __\n |  __ \\ /\\   |  __ \\|  \\/  |\n | |__) /  \\  | |__) | \\  / |\n |  ___/ /\\ \\ |  _  /| |\\/| |\n | |  / ____ \\| | \\ \\| |  | |\n |_| /_/    \\_|_|  \\_|_|  |_|\n""#;
+
+        let expected = ParsedLine::String("  _____        _____  __  __\n |  __ \\ /\\   |  __ \\|  \\/  |\n | |__) /  \\  | |__) | \\  / |\n |  ___/ /\\ \\ |  _  /| |\\/| |\n | |  / ____ \\| | \\ \\| |  | |\n |_| /_/    \\_|_|  \\_|_|  |_|\n".to_owned());
 
         let res = parse_line(input).unwrap();
 

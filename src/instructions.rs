@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use bitvec::bitvec;
 use bitvec::prelude::Msb0;
@@ -35,7 +35,7 @@ impl TryFrom<u8> for Reg {
             Reg::PC,
             Reg::SP,
         ]
-        .iter()
+            .iter()
         {
             if reg as u8 == value {
                 return Ok(reg);
@@ -262,6 +262,13 @@ impl Instr {
             B => bitvec![u8, Msb0; 1, 1, 1, 0, 0],
         }
     }
+
+    pub(crate) const fn next_is_unreachable(&self) -> bool {
+        match *self {
+            Instr::B => true,
+            _ => false
+        }
+    }
 }
 
 pub(crate) type Immediate3 = Immediate<3, false>;
@@ -354,5 +361,82 @@ impl FullInstr {
             }
         }
         Ok(copy)
+    }
+}
+
+
+#[derive(Error, Debug)]
+pub(crate) enum LiteralPoolError {
+    #[error("Literal pool is full")]
+    Full,
+    #[error("Literal is too big")]
+    TooBig,
+}
+
+pub(crate) struct LiteralPool {
+    pub(crate) data: Vec<String>,
+    current_size: u32,
+}
+
+impl LiteralPool {
+    const MAX_POOL_SIZE: u32 = 4000;
+
+    fn new() -> Self {
+        Self {
+            data: Vec::new(),
+            current_size: 0,
+        }
+    }
+
+    fn push(&mut self, str: String) -> Result<(), LiteralPoolError> {
+        if str.len() > Self::MAX_POOL_SIZE as usize {
+            return Err(LiteralPoolError::TooBig);
+        }
+        if !self.can_push(&str) {
+            return Err(LiteralPoolError::Full);
+        }
+
+        self.current_size += str.len() as u32;
+        self.data.push(str);
+
+        Ok(())
+    }
+
+    fn can_push(&self, str: &str) -> bool {
+        (self.current_size + str.len() as u32) < Self::MAX_POOL_SIZE
+    }
+}
+
+pub(crate) struct LiteralPoolBuilder {
+    data: HashSet<String>,
+}
+
+impl LiteralPoolBuilder {
+    pub(crate) fn new() -> Self {
+        Self {
+            data: HashSet::new()
+        }
+    }
+
+    pub(crate) fn add(&mut self, str: String)
+    {
+        self.data.insert(str);
+    }
+
+
+    pub(crate) fn make_pools(self) -> Result<Vec<LiteralPool>, LiteralPoolError> {
+        if self.data.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let mut pools = vec![LiteralPool::new()];
+        for str in self.data {
+            if !pools.last().unwrap().can_push(&str) {
+                pools.push(LiteralPool::new());
+            }
+            pools.last_mut().unwrap().push(str)?;
+        }
+
+        Ok(pools)
     }
 }
