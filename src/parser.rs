@@ -24,10 +24,15 @@ trait Parseable: Sized {
 
 impl Parseable for Reg {
     fn parse(input: &str) -> IResult<&str, Reg, Err> {
-        map_res(
+        let standard_reg = map_res(
             preceded(tag_no_case("r"), map_res(digit1, str::parse::<u8>)),
             Reg::try_from,
-        )(input)
+        );
+
+        let sp = value(Reg::SP, tag_no_case("sp"));
+        let pc = value(Reg::PC, tag_no_case("pc"));
+
+        alt((standard_reg, sp, pc))(input)
     }
 }
 
