@@ -213,12 +213,12 @@ impl Instr {
             Lsls => bitvec![u8, Msb0; 0, 0, 0, 0, 0],
             Lsrs => bitvec![u8, Msb0; 0, 0, 0, 0, 1],
             Asrs => bitvec![u8, Msb0; 0, 0, 0, 1, 0],
-            Adds => bitvec![u8, Msb0; 0, 0, 0, 1, 1, 0, 0],
-            Subs => bitvec![u8, Msb0; 0, 0, 0, 1, 1, 0, 1],
-            Adds2 => bitvec![u8, Msb0; 0, 0, 0, 1, 1, 1, 0],
-            Subs2 => bitvec![u8, Msb0; 0, 0, 0, 1, 1, 1, 1],
-            Adds3 => bitvec![u8, Msb0; 0, 0, 1, 0, 1],
-            Subs3 => bitvec![u8, Msb0; 0, 0, 1, 1, 1],
+            Adds => bitvec![u8, Msb0; 0, 0, 0, 1, 1, 0, 0], // ADDS <Rd > , < Rn > , <Rm>
+            Adds2 => bitvec![u8, Msb0; 0, 0, 0, 1, 1, 1, 0], // ADDS <Rd > , < Rn> , <#imm3>
+            Adds3 => bitvec![u8, Msb0; 0, 0, 1, 1, 0],      // ADDS <Rdn > , #<imm8>
+            Subs => bitvec![u8, Msb0; 0, 0, 0, 1, 1, 0, 1], // SUBS <Rd > , < Rn > , <Rm>
+            Subs2 => bitvec![u8, Msb0; 0, 0, 0, 1, 1, 1, 1], // SUBS <Rd > , < Rn> , <#imm3>
+            Subs3 => bitvec![u8, Msb0; 0, 0, 1, 1, 1],      // SUBS <Rdn > , #<imm8>
             Movs => bitvec![u8, Msb0; 0, 0, 1, 0, 0],
             // Data processing
             Ands => bitvec![u8, Msb0; 0, 1, 0, 0, 0, 0, 0, 0, 0, 0],
