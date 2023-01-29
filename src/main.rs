@@ -36,13 +36,12 @@ fn main() {
     let args = parse_args();
     let contents = read_file(&args.input);
 
-    println!("Input file: {}", contents);
-
-    let output = export_to_logisim(&contents).expect("Failed to export to logisim");
-
-    println!("Output file: {}", output);
-
-    let output_path = args.input.with_extension("bin");
-
-    write_file(&output_path, &output);
+    match export_to_logisim(&contents) {
+        Ok(output) => {
+            write_file(&args.input.with_extension("bin"), &output);
+        }
+        Err(e) => {
+            println!("Error: {}", e);
+        }
+    }
 }

@@ -11,6 +11,7 @@ use nom::{
     sequence::tuple,
     Finish, IResult,
 };
+use std::fmt::{Display, Formatter};
 use thiserror::Error;
 
 use crate::instructions::{Args, FullInstr, Immediate, Immediate8, Instr, Reg};
@@ -305,7 +306,10 @@ pub(crate) enum ParsedLine {
 /// If the line is not an instruction or a label, it is ignored.
 fn parse_line(input: &str) -> IResult<&str, ParsedLine, Err> {
     if input.is_empty() {
-        return Err(nom::Err::Error(VerboseError { errors: vec![] }));
+        return Err(nom::Err::Error(nom::error::ParseError::from_error_kind(
+            input,
+            ErrorKind::Eof,
+        )));
     }
     terminated(
         alt((
@@ -328,8 +332,44 @@ fn parse_line(input: &str) -> IResult<&str, ParsedLine, Err> {
 
 #[derive(Error, Debug)]
 pub enum ParseError {
-    #[error("nom error: {json}")]
-    NomError { input: String, json: String },
+    NomError {
+        errors: Vec<(String, ErrorKind)>,
+        json: String,
+    },
+}
+
+impl Display for ParseError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ParseError::NomError { errors, json } => {
+                writeln!(f, "Failed to parse assembly code:")?;
+                for (line, error) in errors {
+                    writeln!(f, "Error: {:?} at line: {}", error, line)?;
+                }
+                writeln!(f, "JSON: {}", json)
+            }
+        }
+    }
+}
+
+impl ParseError {
+    pub fn from_nom_error(input: &str, err: Err) -> Self {
+        let json = convert_error(input, err.clone());
+
+        let errors = err
+            .errors
+            .into_iter()
+            .map(|(input, kind)| {
+                let kind = match kind {
+                    nom::error::VerboseErrorKind::Nom(nom_kind) => nom_kind,
+                    _ => ErrorKind::Fail,
+                };
+                (input.lines().next().unwrap_or_default().to_owned(), kind)
+            })
+            .collect();
+
+        Self::NomError { errors, json }
+    }
 }
 
 pub(crate) fn parse_lines(input: &str) -> Result<Vec<ParsedLine>, ParseError> {
@@ -341,10 +381,7 @@ pub(crate) fn parse_lines(input: &str) -> Result<Vec<ParsedLine>, ParseError> {
                 .filter(|l| l != &ParsedLine::None)
                 .collect()
         })
-        .map_err(|e| ParseError::NomError {
-            input: input.to_owned(),
-            json: convert_error(input, e),
-        })
+        .map_err(|e| ParseError::from_nom_error(input, e))
 }
 
 #[cfg(test)]
@@ -421,10 +458,8 @@ mod tests {
     #[test]
     fn parse_empty_lines() {
         let input = "";
-        let expected =
-            IResult::<&str, ParsedLine, Err>::Err(nom::Err::Error(VerboseError { errors: vec![] }));
         let res = parse_line(input);
-        assert_eq!(expected, res);
+        assert!(res.is_err());
     }
 
     #[test]
