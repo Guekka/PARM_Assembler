@@ -189,7 +189,7 @@ fn parse_separator(input: &str) -> IResult<&str, &str, Err> {
 type ParseArgs = fn(&str) -> IResult<&str, Args, Err>;
 
 /// The full list of supported instructions.
-const INSTRUCTIONS: &[(Instr, ParseArgs); 47] = &[
+const INSTRUCTIONS: &[(Instr, ParseArgs); 48] = &[
     (Instr::Lsls, parse_rd_rm_imm5),
     (Instr::Lsrs, parse_rd_rm_imm5),
     (Instr::Asrs, parse_rd_rm_imm5),
@@ -212,6 +212,7 @@ const INSTRUCTIONS: &[(Instr, ParseArgs); 47] = &[
     (Instr::Tst, parse_two_regs),
     (Instr::Rsbs, parse_two_regs),
     (Instr::Cmp, parse_two_regs),
+    (Instr::Cmp2, parse_rd_imm8),
     (Instr::Cmn, parse_two_regs),
     (Instr::Orrs, parse_two_regs),
     (Instr::Muls, parse_rdm_rn_rdm),
