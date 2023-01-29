@@ -61,7 +61,7 @@ impl<const N: u8, const WIDE: bool> Immediate<N, WIDE> {
 
     const fn upper_bound() -> u16 {
         let offset = if WIDE { 2 } else { 0 };
-        (1 << (N + offset)) - 1
+        1 << (N + offset)
     }
 
     pub(crate) fn new(val: u16) -> Result<Self, ImmediateError> {
