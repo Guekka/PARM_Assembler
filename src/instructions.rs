@@ -293,6 +293,7 @@ pub(crate) enum Args {
     RdRnImm3(Reg, Reg, Immediate3),
     RdRnRm(Reg, Reg, Reg),
     RtSpImm8W(Reg, Immediate8W),
+    RtLabel(Reg, String),
     TwoRegs(Reg, Reg),
 }
 

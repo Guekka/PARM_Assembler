@@ -183,6 +183,16 @@ fn parse_label_args(input: &str) -> IResult<&str, Args, Err> {
     })(input)
 }
 
+fn parse_rt_label(input: &str) -> IResult<&str, Args, Err> {
+    map(
+        pair(
+            preceded(parse_separator, Reg::parse),
+            preceded(parse_separator, parse_label),
+        ),
+        |(reg, str)| Args::RtLabel(reg, str.to_owned()),
+    )(input)
+}
+
 fn parse_separator(input: &str) -> IResult<&str, &str, Err> {
     preceded(opt(char(',')), space0)(input)
 }
@@ -190,7 +200,7 @@ fn parse_separator(input: &str) -> IResult<&str, &str, Err> {
 type ParseArgs = fn(&str) -> IResult<&str, Args, Err>;
 
 /// The full list of supported instructions.
-const INSTRUCTIONS: &[(Instr, ParseArgs); 49] = &[
+const INSTRUCTIONS: &[(Instr, ParseArgs); 50] = &[
     (Instr::Lsls, parse_rd_rm_imm5),
     (Instr::Lsrs, parse_rd_rm_imm5),
     (Instr::Asrs, parse_rd_rm_imm5),
@@ -221,6 +231,7 @@ const INSTRUCTIONS: &[(Instr, ParseArgs); 49] = &[
     (Instr::Mvns, parse_two_regs),
     (Instr::Str, parse_rt_sp_imm8),
     (Instr::Ldr, parse_rt_sp_imm8),
+    (Instr::Ldr, parse_rt_label),
     (Instr::Ldrb, parse_rt_sp_imm8),
     (Instr::AddSp, parse_sp_imm7),
     (Instr::SubSp, parse_sp_imm7),
@@ -426,6 +437,7 @@ pub(crate) fn parse_lines(input: &str) -> Result<Vec<ParsedLine>, ParseError> {
 
 #[cfg(test)]
 mod tests {
+    use crate::instructions::Reg::R0;
     use crate::instructions::{Immediate3, Immediate5, Immediate7W, Immediate8, Immediate8W};
 
     use super::*;
@@ -728,5 +740,19 @@ run:
         let res = parse_line(input).unwrap();
 
         assert_eq!(expected, res.1);
+    }
+
+    #[test]
+    fn ldr_label() {
+        let input = "ldr     r0, .LCPI0_0";
+
+        let expected = ParsedLine::Instr(FullInstr {
+            instr: Instr::Ldr,
+            args: Args::RtLabel(R0, "LCPI0_0".to_owned()),
+        });
+
+        let actual = parse_line(input).unwrap();
+
+        assert_eq!(actual.1, expected);
     }
 }

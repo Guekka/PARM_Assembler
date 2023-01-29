@@ -50,6 +50,7 @@ impl ToBinary for Args {
             Args::RdRmImm5(ref rd, ref rm, ref imm5) => vec![imm5, rm, rd],
             Args::RdRnImm3(rd, rn, imm3) => vec![imm3, rn, rd],
             Args::Label(_) => panic!("Label not resolved"),
+            Args::RtLabel(_, _) => panic!("Label not resolved"),
             Args::RdRnRm(rd, rn, rm) => vec![rm, rn, rd],
             Args::RdImm8(rd, imm8) => vec![rd, imm8],
             Args::Immediate7W(imm7w) => vec![imm7w],
