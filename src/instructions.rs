@@ -107,6 +107,8 @@ pub(crate) enum Instr {
     Subs,
     Adds2,
     Subs2,
+    Adds3,
+    Subs3,
     Movs,
     // Data processing
     Ands,
@@ -161,6 +163,8 @@ impl Instr {
             Instr::Subs => "subs",
             Instr::Adds2 => "adds",
             Instr::Subs2 => "subs",
+            Instr::Adds3 => "adds",
+            Instr::Subs3 => "subs",
             Instr::Movs => "movs",
             Instr::Str => "str",
             Instr::Ldr => "ldr",
@@ -211,6 +215,8 @@ impl Instr {
             Subs => bitvec![u8, Msb0; 0, 0, 0, 1, 1, 0, 1],
             Adds2 => bitvec![u8, Msb0; 0, 0, 0, 1, 1, 1, 0],
             Subs2 => bitvec![u8, Msb0; 0, 0, 0, 1, 1, 1, 1],
+            Adds3 => bitvec![u8, Msb0; 0, 0, 1, 0, 1],
+            Subs3 => bitvec![u8, Msb0; 0, 0, 1, 1, 1],
             Movs => bitvec![u8, Msb0; 0, 0, 1, 0, 0],
             // Data processing
             Ands => bitvec![u8, Msb0; 0, 1, 0, 0, 0, 0, 0, 0, 0, 0],
