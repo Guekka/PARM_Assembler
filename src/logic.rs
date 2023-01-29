@@ -1,10 +1,9 @@
-use bitvec::prelude::*;
+use bitvec::field::BitField;
 use thiserror::Error;
 
 use crate::emitter::ToBinary;
-use crate::instructions::{CompleteError, FullInstr, LabelLookup, LiteralPool, LiteralPoolBuilder, LiteralPoolError};
+use crate::instructions::{BitVec, CompleteError, FullInstr, LabelLookup};
 use crate::parser::ParsedLine;
-
 
 /// Maps labels to their addresses.
 /// The address of a label is the address of the instruction after the label.
@@ -31,69 +30,53 @@ pub(crate) enum ProgramError {
 
 enum ProcessedLine {
     Instr(FullInstr),
-    Pool(LiteralPool),
+    String(String),
 }
 
 impl ToBinary for ProcessedLine {
-    fn to_binary(&self) -> crate::instructions::BitVec {
+    fn to_binary(&self) -> BitVec {
         match self {
             ProcessedLine::Instr(instr) => instr.to_binary(),
-            ProcessedLine::Pool(pool) => pool.to_binary()
+            ProcessedLine::String(string) => string.to_binary(),
         }
     }
 }
 
-fn calculate_literal_pools(instrs: &Vec<ParsedLine>) -> Result<Vec<LiteralPool>, LiteralPoolError> {
-    instrs.iter().filter_map(|instr| match instr {
-        ParsedLine::String(s) => Some(s),
-        _ => None,
-    }).fold(LiteralPoolBuilder::new(), |mut acc, str| {
-        acc.add(str.clone());
-        acc
-    }).make_pools()
-}
-
-fn process_lines(instrs: Vec<ParsedLine>) -> Result<Vec<ProcessedLine>, CompleteError> {
+fn process_lines(mut instrs: Vec<ParsedLine>) -> Result<Vec<ProcessedLine>, CompleteError> {
     let labels = calculate_labels(&instrs);
-    let literal_pools = calculate_literal_pools(&instrs).expect("test");
 
-    let instrs =
-        instrs
-            .into_iter()
-            .filter_map(|l| match l {
-                ParsedLine::Instr(i) => Some(i),
-                _ => None,
-            }).collect::<Vec<_>>();
+    let only_instrs = instrs
+        .iter_mut()
+        .filter_map(|l| match l {
+            ParsedLine::Instr(i) => Some(i),
+            _ => None,
+        })
+        .enumerate();
 
-    let mut completed_instrs = instrs
-        .into_iter().enumerate()
-        .map(|(i, instr)| instr.complete(i, &labels)).map(|res| res.map(|instr| ProcessedLine::Instr(instr))).collect::<Result<Vec<_>, _>>()?;
-
-
-    if !literal_pools.is_empty() {
-        // let's find an unreachable place
-        // I think we're supposed to split pools between unreachable places... but we'll just use the first place
-        // and hope everything's fine
-        let first_unreachable = completed_instrs.iter().enumerate().filter(|(_, line)| {
-            if let ProcessedLine::Instr(instr) = line {
-                instr.instr.next_is_unreachable()
-            } else {
-                false
-            }
-        }).next().expect("There should be at least one unreachable place in the code").0;
-
-        for pool in literal_pools {
-            completed_instrs.insert(first_unreachable, ProcessedLine::Pool(pool));
-        }
+    for (i, instr) in only_instrs {
+        *instr = instr.complete(i, &labels)?;
     }
 
-    Ok(completed_instrs)
+    Ok(instrs
+        .into_iter()
+        .filter_map(|l| match l {
+            ParsedLine::Instr(i) => Some(ProcessedLine::Instr(i)),
+            ParsedLine::String(s) => Some(ProcessedLine::String(s)),
+            _ => None,
+        })
+        .collect())
 }
 
 pub(crate) fn make_program(instrs: Vec<ParsedLine>) -> Result<Vec<u16>, CompleteError> {
-    let res = process_lines(instrs)?.into_iter().map(|line| line.to_binary())
-        // logisim uses big endian
-        .map(|bits| bits.load_be::<u16>())
+    let res = process_lines(instrs)?
+        .into_iter()
+        .map(|line| line.to_binary())
+        .flat_map(|line| {
+            let chunks = line.chunks_exact(16);
+            assert!(chunks.remainder().is_empty());
+            // logisim uses big endian
+            chunks.map(|c| c.load_be::<u16>()).collect::<Vec<_>>()
+        })
         .collect();
 
     Ok(res)

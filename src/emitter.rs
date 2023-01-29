@@ -1,8 +1,6 @@
 #![allow(clippy::unusual_byte_groupings)]
 
 use bitvec::field::BitField;
-use bitvec::order::Msb0;
-use bitvec::prelude::AsBits;
 
 use crate::instructions::*;
 
@@ -79,12 +77,15 @@ impl ToBinary for FullInstr {
     }
 }
 
-impl ToBinary for LiteralPool {
+impl ToBinary for String {
     fn to_binary(&self) -> BitVec {
-        self.data.iter().fold(BitVec::new(), |mut bits, str| {
-            bits.extend_from_bitslice(str.as_bits::<Msb0>());
-            bits
-        })
+        // We want each character to be 16 bits since our CPU cannot read byte sized data
+        self.chars()
+            .map(|c| c as u16)
+            .fold(BitVec::new(), |mut acc, x| {
+                acc.extend(x.to_be_bytes());
+                acc
+            })
     }
 }
 
@@ -179,5 +180,30 @@ mod tests {
             0, 0, 0, 0, 0, 0, 0, 1, // Imm8
         ];
         assert_eq!(input.to_binary(), expected);
+    }
+
+    #[test]
+    fn string() {
+        let input = "Hello world!".to_owned();
+
+        let expected = bits![
+            u8, Msb0;
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 0, 1,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 1, 1,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 1, 1, 1,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 1, 1,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 1, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1,
+        ];
+
+        let actual = input.to_binary();
+
+        assert_eq!(actual, expected);
     }
 }
