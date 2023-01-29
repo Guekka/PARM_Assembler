@@ -283,6 +283,14 @@ fn parse_end_of_line(input: &str) -> IResult<&str, (), Err> {
     terminated(value((), space0), line_ending)(input)
 }
 
+/// clang emits push instructions that we don't support, so we just ignore them.
+fn parse_push(input: &str) -> IResult<&str, (), Err> {
+    value(
+        (),
+        delimited(tag_no_case("push"), take_till(|c| c == '\n'), line_ending),
+    )(input)
+}
+
 #[derive(PartialEq, Debug, Clone)]
 pub(crate) enum ParsedLine {
     Instr(FullInstr),
@@ -303,6 +311,7 @@ fn parse_line(input: &str) -> IResult<&str, ParsedLine, Err> {
                 ParsedLine::Label(s.to_owned())
             }),
             map(preceded(space0, parse_instr), ParsedLine::Instr),
+            value(ParsedLine::None, parse_push),
             value(ParsedLine::None, parse_comment),
             value(ParsedLine::None, multispace1),
             // If something starts with a dot and is not a label, it's probably a directive we can ignore
