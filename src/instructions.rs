@@ -131,6 +131,7 @@ pub(crate) enum Instr {
     // Load / Store
     Str,
     Ldr,
+    Ldrb,
     // Misc
     AddSp,
     SubSp,
@@ -169,6 +170,7 @@ impl Instr {
             Instr::Movs => &["movs"],
             Instr::Str => &["str"],
             Instr::Ldr => &["ldr"],
+            Instr::Ldrb => &["ldrb"],
             Instr::AddSp => &["add"],
             Instr::SubSp => &["sub"],
             Instr::Ands => &["ands"],
@@ -241,6 +243,10 @@ impl Instr {
             // Load / Store
             Str => bitvec![u8, Msb0; 1, 0, 0, 1, 0],
             Ldr => bitvec![u8, Msb0; 1, 0, 0, 1, 1],
+            // NOTE: This is a hack. Ldrb and ldr are not the same
+            // But in our case, we know ldrb is used for strings
+            // And we pad each string character to word size, so it's fine
+            Ldrb => Self::bits(&Ldr),
             // Misc
             AddSp => bitvec![u8, Msb0; 1, 0, 1, 1, 0, 0, 0, 0, 0],
             SubSp => bitvec![u8, Msb0; 1, 0, 1, 1, 0, 0, 0, 0, 1],

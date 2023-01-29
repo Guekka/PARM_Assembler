@@ -3,7 +3,7 @@ use nom::character::complete::{char, line_ending, multispace1, space0};
 use nom::combinator::{eof, map_opt, map_res, value};
 use nom::error::{convert_error, ErrorKind, VerboseError};
 use nom::multi::many_till;
-use nom::sequence::{delimited, preceded, terminated};
+use nom::sequence::{delimited, pair, preceded, terminated};
 use nom::{
     branch::alt,
     character::complete::digit1,
@@ -190,7 +190,7 @@ fn parse_separator(input: &str) -> IResult<&str, &str, Err> {
 type ParseArgs = fn(&str) -> IResult<&str, Args, Err>;
 
 /// The full list of supported instructions.
-const INSTRUCTIONS: &[(Instr, ParseArgs); 48] = &[
+const INSTRUCTIONS: &[(Instr, ParseArgs); 49] = &[
     (Instr::Lsls, parse_rd_rm_imm5),
     (Instr::Lsrs, parse_rd_rm_imm5),
     (Instr::Asrs, parse_rd_rm_imm5),
@@ -221,6 +221,7 @@ const INSTRUCTIONS: &[(Instr, ParseArgs); 48] = &[
     (Instr::Mvns, parse_two_regs),
     (Instr::Str, parse_rt_sp_imm8),
     (Instr::Ldr, parse_rt_sp_imm8),
+    (Instr::Ldrb, parse_rt_sp_imm8),
     (Instr::AddSp, parse_sp_imm7),
     (Instr::SubSp, parse_sp_imm7),
     (Instr::Beq, parse_label_args),
