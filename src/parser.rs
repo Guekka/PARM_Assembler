@@ -1,8 +1,8 @@
 use nom::bytes::complete::{tag_no_case, take_till, take_while};
 use nom::character::complete::{char, line_ending, multispace1, space0};
-use nom::combinator::{map_opt, map_res, value};
+use nom::combinator::{eof, map_opt, map_res, value};
 use nom::error::{convert_error, ErrorKind, VerboseError};
-use nom::multi::many1;
+use nom::multi::many_till;
 use nom::sequence::{delimited, preceded, terminated};
 use nom::{
     branch::alt,
@@ -374,9 +374,10 @@ impl ParseError {
 }
 
 pub(crate) fn parse_lines(input: &str) -> Result<Vec<ParsedLine>, ParseError> {
-    many1(parse_line)(input)
+    many_till(parse_line, eof)(input)
         .finish()
-        .map(|(_, lines)| {
+        .map(|(_, (lines, _))| lines)
+        .map(|lines| {
             lines
                 .into_iter()
                 .filter(|l| l != &ParsedLine::None)
