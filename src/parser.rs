@@ -11,6 +11,7 @@ use nom::{
     sequence::tuple,
     Finish, IResult,
 };
+use regex::Regex;
 use std::fmt::{Display, Formatter};
 use thiserror::Error;
 
@@ -245,12 +246,16 @@ const fn generate_instructions_parser() -> fn(&str) -> IResult<&str, FullInstr, 
     move |input: &str| {
         INSTRUCTIONS
             .iter()
-            .map(|(instr, args_parser)| {
+            .flat_map(|(instr, parse_args)| {
+                instr
+                    .text_instruction()
+                    .iter()
+                    .map(|text_instr| (text_instr, instr, parse_args))
+                    .collect::<Vec<_>>()
+            })
+            .map(|(&text_instr, instr, args_parser)| {
                 map(
-                    tuple((
-                        value(instr, tag_no_case(instr.text_instruction())),
-                        args_parser,
-                    )),
+                    tuple((value(instr, tag_no_case(text_instr)), args_parser)),
                     |(instr, args)| FullInstr {
                         instr: *instr,
                         args,
@@ -373,8 +378,21 @@ impl ParseError {
     }
 }
 
+fn preprocess(input: &str) -> String {
+    const REPLACEMENTS: [(&str, &str); 1] = [(r#"movs\s+(r\d), (r\d)"#, "lsls $1, $2, #0")];
+
+    let mut output = input.to_owned();
+
+    for (pattern, replacement) in REPLACEMENTS.iter() {
+        let re = Regex::new(pattern).unwrap();
+        output = re.replace_all(&output, *replacement).to_string();
+    }
+    output
+}
 pub(crate) fn parse_lines(input: &str) -> Result<Vec<ParsedLine>, ParseError> {
-    many_till(parse_line, eof)(input)
+    let input = preprocess(input);
+
+    let res = many_till(parse_line, eof)(input.as_ref())
         .finish()
         .map(|(_, (lines, _))| lines)
         .map(|lines| {
@@ -383,7 +401,9 @@ pub(crate) fn parse_lines(input: &str) -> Result<Vec<ParsedLine>, ParseError> {
                 .filter(|l| l != &ParsedLine::None)
                 .collect()
         })
-        .map_err(|e| ParseError::from_nom_error(input, e))
+        .map_err(|e| ParseError::from_nom_error(input.as_ref(), e));
+
+    res
 }
 
 #[cfg(test)]
