@@ -1,25 +1,33 @@
 #[cfg(test)]
 mod tests {
-    use parm_assembler::export_to_logisim;
+    use parm_assembler::{export_to_logisim, LogisimProgram};
 
     #[test]
     fn string() {
         let input = r#"
+            string_label:
             .asciz "Hello, world!"
             .end:
             b .end
         "#;
 
-        let output = parm_assembler::export_to_logisim(input).unwrap();
+        let output = export_to_logisim(input).unwrap();
 
-        let expected =
-            "v2.0 raw\n0048 0065 006c 006c 006f 002c 0020 0077 006f 0072 006c 0064 0021 e7fe";
+        let expected_rom = "v2.0 raw\ne7fd";
 
-        assert_eq!(output, expected);
+        let expected_ram =
+            "v2.0 raw\n0048 0065 006c 006c 006f 002c 0020 0077 006f 0072 006c 0064 0021";
+
+        assert_eq!(
+            output,
+            LogisimProgram {
+                rom: expected_rom.to_owned(),
+                ram: expected_ram.to_owned()
+            }
+        );
     }
 
     #[test]
-    #[ignore] // FIXME: This test is failing
     fn complete_program() {
         let input = r#"
         .text
@@ -91,6 +99,28 @@ run:
 
         let output = export_to_logisim(input).unwrap();
 
-        println!("{output}");
+        let expected_rom =
+            "v2.0 raw\nb081 b0ff b0f1 6838 6801 9100 6841 9100 6881 9100 68c0 9000 e7fd";
+
+        let expected_ram =
+            "v2.0 raw\n0020 0020 005f 005f 005f 005f 005f 0020 0020 0020 0020 0020 0020 0020 0020 \
+            005f 005f 005f 005f 005f 0020 0020 005f 005f 0020 0020 005f 005f 000a 0020 007c 0020 \
+            0020 005f 005f 0020 005c 0020 002f 005c 0020 0020 0020 007c 0020 0020 005f 005f 0020 \
+            005c 007c 0020 0020 005c 002f 0020 0020 007c 000a 0020 007c 0020 007c 005f 005f 0029 \
+            0020 002f 0020 0020 005c 0020 0020 007c 0020 007c 005f 005f 0029 0020 007c 0020 005c \
+            0020 0020 002f 0020 007c 000a 0020 007c 0020 0020 005f 005f 005f 002f 0020 002f 005c \
+            0020 005c 0020 007c 0020 0020 005f 0020 0020 002f 007c 0020 007c 005c 002f 007c 0020 \
+            007c 000a 0020 007c 0020 007c 0020 0020 002f 0020 005f 005f 005f 005f 0020 005c 007c \
+            0020 007c 0020 005c 0020 005c 007c 0020 007c 0020 0020 007c 0020 007c 000a 0020 007c \
+            005f 007c 0020 002f 005f 002f 0020 0020 0020 0020 005c 005f 007c 005f 007c 0020 0020 \
+            005c 005f 007c 005f 007c 0020 0020 007c 005f 007c 000a";
+
+        assert_eq!(
+            output,
+            LogisimProgram {
+                rom: expected_rom.to_owned(),
+                ram: expected_ram.to_owned()
+            }
+        );
     }
 }

@@ -251,8 +251,8 @@ const INSTRUCTIONS: &[(Instr, ParseArgs); 50] = &[
     (Instr::Mvns, parse_two_regs),
     (Instr::Str, parse_rt_sp_imm8),
     (Instr::Ldr, parse_rt_sp_imm8),
-    (Instr::Ldr, parse_rt_label),
-    (Instr::Ldrb, parse_rt_rn_imm5),
+    (Instr::Ldr2, parse_rt_rn_imm5),
+    (Instr::Ldr3, parse_rt_label),
     (Instr::AddSp, parse_sp_imm7),
     (Instr::SubSp, parse_sp_imm7),
     (Instr::Beq, parse_label_args),
@@ -359,14 +359,13 @@ pub(crate) enum ParsedLine {
 /// A line can be an instruction, a label or a comment.
 /// If the line is not an instruction or a label, it is ignored.
 fn parse_line(input: &str) -> IResult<&str, ParsedLine, Err> {
-    println!("read: {}", input.chars().take(100).collect::<String>());
     if input.is_empty() {
         return Err(nom::Err::Error(nom::error::ParseError::from_error_kind(
             input,
             ErrorKind::Eof,
         )));
     }
-    let r = terminated(
+    terminated(
         alt((
             map(preceded(space0, parse_label_definition), |s| {
                 ParsedLine::Label(s.to_owned())
@@ -383,10 +382,7 @@ fn parse_line(input: &str) -> IResult<&str, ParsedLine, Err> {
             ),
         )),
         opt(parse_end_of_line),
-    )(input);
-
-    println!("{r:#?}");
-    r
+    )(input)
 }
 
 #[derive(Error, Debug)]
@@ -432,7 +428,14 @@ impl ParseError {
 }
 
 fn preprocess(input: &str) -> String {
-    const REPLACEMENTS: [(&str, &str); 1] = [(r#"movs\s+(r\d), (r\d)"#, "lsls $1, $2, #0")];
+    const REPLACEMENTS: [(&str, &str); 2] = [
+        (r#"movs?\s+(r\d), (r\d)"#, "lsls $1, $2, #0"),
+        // let's hope nobody uses r6
+        (
+            r#"ldrb\s+(r\d), \[(r\d), (r\d)\]"#,
+            "adds r6, $2, $3\nldrb $1, [r6]",
+        ),
+    ];
 
     let mut output = input.to_owned();
 
@@ -771,7 +774,7 @@ run:
         let input = "ldr     r0, .LCPI0_0";
 
         let expected = ParsedLine::Instr(FullInstr {
-            instr: Instr::Ldr,
+            instr: Instr::Ldr3,
             args: Args::RtLabel(R0, "LCPI0_0".to_owned()),
         });
 
@@ -785,7 +788,7 @@ run:
         let input = "ldrb r0, [r1, #1]";
 
         let expected = ParsedLine::Instr(FullInstr {
-            instr: Instr::Ldrb,
+            instr: Instr::Ldr2,
             args: Args::RtRnImm5(Reg::R0, Reg::R1, Immediate5::new(1).unwrap()),
         });
 

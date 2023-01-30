@@ -1,12 +1,15 @@
 #[cfg(test)]
 mod tests {
-    use parm_assembler::export_to_logisim;
+    use parm_assembler::{export_to_logisim, LogisimProgram};
 
     #[test]
     fn lsls() {
         let input = "lsls r4, r3, #7";
         let expected = "v2.0 raw\n01dc";
-        assert_eq!(export_to_logisim(input).unwrap(), expected);
+
+        let actual = export_to_logisim(input).unwrap();
+
+        assert_eq!(actual, LogisimProgram::with_rom(expected.to_owned()));
     }
 
     #[test]
@@ -37,7 +40,7 @@ mod tests {
         let expected = "v2.0 raw
 2000 2101 22aa 23ff 0054 0855 1f46 1076 1877";
 
-        assert_eq!(expected, output);
+        assert_eq!(output, LogisimProgram::with_rom(expected.to_owned()));
     }
 
     #[test]
@@ -63,6 +66,6 @@ mod tests {
         let expected = "v2.0 raw
 2000 2101 22aa 23ff 1a9c 1d55 26b3";
 
-        assert_eq!(expected, output);
+        assert_eq!(output, LogisimProgram::with_rom(expected.to_owned()));
     }
 }

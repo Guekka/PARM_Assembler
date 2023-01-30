@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use parm_assembler::export_to_logisim;
+    use parm_assembler::{export_to_logisim, LogisimProgram};
 
     #[test]
     fn one() {
@@ -13,6 +13,6 @@ mod tests {
 
         let expected = "v2.0 raw\nb004 b081";
 
-        assert_eq!(expected, output);
+        assert_eq!(output, LogisimProgram::with_rom(expected.to_owned()));
     }
 }

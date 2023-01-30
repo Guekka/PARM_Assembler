@@ -1,29 +1,31 @@
-use bitvec::field::BitField;
+use std::mem;
 use thiserror::Error;
 
 use crate::emitter::ToBinary;
-use crate::instructions::{Args, BitVec, CompleteError, FullInstr, LabelLookup};
+use crate::instructions::{BitVec, CompleteError, FullInstr, LabelLookup};
 use crate::parser::ParsedLine;
 
 /// Maps labels to their addresses.
 /// The address of a label is the address of the instruction after the label.
-fn calculate_labels(instrs: &[ParsedLine]) -> LabelLookup {
-    instrs
-        .iter()
-        .enumerate()
-        .filter_map(|(i, l)| match l {
-            ParsedLine::Label(l) => Some((i, l.to_owned())),
-            ParsedLine::Instr(FullInstr {
-                args: Args::RtLabel(_, label),
-                ..
-            }) => Some((i, label.clone())),
-            _ => None,
-        })
-        .enumerate()
-        // this is a bit tricky: labels do not have an address on their own
-        // so we need to substract current label index
-        .map(|(label_i, (i, l))| (l, i - label_i))
-        .collect()
+fn calculate_labels(instrs: &[ParsedLine], ram: &[ParsedLine]) -> (LabelLookup, LabelLookup) {
+    fn calculate(list: &[ParsedLine]) -> LabelLookup {
+        list.iter()
+            .enumerate()
+            .filter_map(|(i, l)| match l {
+                ParsedLine::Label(l) => Some((i, l.to_owned())),
+                _ => None,
+            })
+            .enumerate()
+            // this is a bit tricky: labels do not have an address on their own
+            // so we need to substract current label index
+            .map(|(label_i, (i, l))| (l, i - label_i))
+            .collect()
+    }
+
+    let rom_labels = calculate(instrs);
+    let ram_labels = calculate(ram);
+
+    (rom_labels, ram_labels)
 }
 
 #[derive(Error, Debug)]
@@ -32,22 +34,46 @@ pub(crate) enum ProgramError {
     CompleteError(#[from] CompleteError),
 }
 
-enum ProcessedLine {
-    Instr(FullInstr),
-    String(String),
-}
+fn extract_ram(instrs: &mut Vec<ParsedLine>) -> Vec<ParsedLine> {
+    // strings are located after a label
+    // so we need to find label immediately before a string
+    let mut ram = Vec::new();
+    let mut last_labels = Vec::new();
+    let mut to_remove = Vec::new();
 
-impl ToBinary for ProcessedLine {
-    fn to_binary(&self) -> BitVec {
-        match self {
-            ProcessedLine::Instr(instr) => instr.to_binary(),
-            ProcessedLine::String(string) => string.to_binary(),
+    for (i, instr) in instrs.iter().enumerate() {
+        match instr {
+            ParsedLine::Label(string) => {
+                last_labels.push((i, string));
+            }
+            ParsedLine::String(string) => {
+                if !last_labels.is_empty() {
+                    for (i, label) in mem::take(&mut last_labels).into_iter() {
+                        ram.push(ParsedLine::Label(label.to_owned()));
+                        to_remove.push(i);
+                    }
+                    ram.push(ParsedLine::String(string.clone()));
+                    to_remove.push(i);
+                } else {
+                    panic!("String without label: {}", string);
+                }
+            }
+            _ => last_labels.clear(),
         }
     }
+
+    for i in to_remove.iter().rev() {
+        instrs.remove(*i);
+    }
+
+    ram
 }
 
-fn process_lines(mut instrs: Vec<ParsedLine>) -> Result<Vec<ProcessedLine>, CompleteError> {
-    let labels = calculate_labels(&instrs);
+fn process_lines(
+    mut instrs: Vec<ParsedLine>,
+    ram: &[ParsedLine],
+) -> Result<(Vec<FullInstr>, Vec<String>), CompleteError> {
+    let (rom_labels, ram_labels) = calculate_labels(&instrs, ram);
 
     let only_instrs = instrs
         .iter_mut()
@@ -55,43 +81,54 @@ fn process_lines(mut instrs: Vec<ParsedLine>) -> Result<Vec<ProcessedLine>, Comp
             ParsedLine::Instr(i) => Some(i),
             _ => None,
         })
-        .enumerate();
+        .enumerate()
+        .map(|(i, instr)| instr.complete(i, &rom_labels, &ram_labels))
+        .collect::<Result<_, _>>()?;
 
-    for (i, instr) in only_instrs {
-        *instr = instr.complete(i, &labels)?;
-    }
-
-    Ok(instrs
-        .into_iter()
+    let ram = ram
+        .iter()
         .filter_map(|l| match l {
-            ParsedLine::Instr(i) => Some(ProcessedLine::Instr(i)),
-            ParsedLine::String(s) => Some(ProcessedLine::String(s)),
+            ParsedLine::String(s) => Some(s),
             _ => None,
         })
-        .collect())
-}
-
-pub(crate) fn make_program(instrs: Vec<ParsedLine>) -> Result<Vec<u16>, CompleteError> {
-    let res = process_lines(instrs)?
-        .into_iter()
-        .map(|line| line.to_binary())
-        .flat_map(|line| {
-            let chunks = line.chunks_exact(16);
-            // logisim uses big endian
-            chunks.map(|c| c.load_be::<u16>()).collect::<Vec<_>>()
-        })
+        .map(|s| s.to_owned())
         .collect();
 
-    Ok(res)
+    Ok((only_instrs, ram))
+}
+
+#[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone)]
+pub(crate) struct Program {
+    pub(crate) instrs: BitVec,
+    pub(crate) ram: BitVec,
+}
+
+pub(crate) fn make_program(mut instrs: Vec<ParsedLine>) -> Result<Program, CompleteError> {
+    let ram = extract_ram(&mut instrs);
+
+    let (rom, ram) = process_lines(instrs, &ram)?;
+
+    let rom = rom.into_iter().fold(BitVec::new(), |mut acc, instr| {
+        acc.extend(instr.to_binary());
+        acc
+    });
+
+    let ram = ram.into_iter().fold(BitVec::new(), |mut acc, string| {
+        acc.extend(string.to_binary());
+        acc
+    });
+
+    Ok(Program { instrs: rom, ram })
 }
 
 #[cfg(test)]
 mod tests {
     #![allow(clippy::unusual_byte_groupings)]
 
-    use crate::instructions::Args::Label;
     use crate::instructions::Reg::{R0, R1, R4, R5};
     use crate::instructions::{Args, FullInstr, Immediate5, Instr};
+    use bitvec::bitvec;
+    use bitvec::order::Msb0;
 
     use super::*;
 
@@ -102,13 +139,20 @@ mod tests {
             args: Args::RdRmImm5(R0, R1, Immediate5::new(5).unwrap()),
         })];
 
+        let expected = bitvec![u8, Msb0;
+            0, 0, 0, 0, 1,
+            0, 0, 1, 0, 1,
+            0, 0, 1,
+            0, 0, 0];
+
         let program = make_program(instrs).unwrap();
-        assert_eq!(program, vec![0b00001_00101_001_000]);
+        assert_eq!(program.instrs, expected);
+        assert!(program.ram.is_empty());
     }
 
     #[test]
     fn test_make_program_with_labels() {
-        let instrs = vec![
+        let mut instrs = vec![
             ParsedLine::Label("label1".to_owned()),
             ParsedLine::Instr(FullInstr {
                 instr: Instr::Lsrs,
@@ -129,32 +173,70 @@ mod tests {
             }),
         ];
 
-        let labels = calculate_labels(&instrs);
+        let ram = extract_ram(&mut instrs);
+
+        let (rom_labels, ram_labels) = calculate_labels(&instrs, &ram);
         let expected_labels: LabelLookup = vec![("label1".to_owned(), 0), ("label2".to_owned(), 3)]
             .into_iter()
             .collect();
 
-        assert_eq!(labels, expected_labels);
+        assert_eq!(rom_labels, expected_labels);
+        assert!(ram_labels.is_empty());
 
         let program = make_program(instrs).unwrap();
-        assert_eq!(
-            program,
-            vec![
-                0b00001_00101_001_000,
-                0b11011110_11111111, // bal to label at line 3
-                0b00000_00010_101_100,
-                0b11011110_11111010, // bal to label at line 0
-            ]
-        );
+
+        let expected_rom = bitvec![u8, Msb0;
+            0, 0, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 0, //
+            1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, // bal to label at line 3
+            0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1, 1, 0, 0, //
+            1, 1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 0, // bal to label at line 0
+        ];
+
+        assert_eq!(program.instrs, expected_rom);
+        assert!(program.ram.is_empty());
     }
 
     #[test]
     fn unexisting_label() {
         let instrs = vec![ParsedLine::Instr(FullInstr {
             instr: Instr::B,
-            args: Label("label".to_owned()),
+            args: Args::Label("label".to_owned()),
         })];
         let program = make_program(instrs);
         assert!(program.is_err());
+    }
+
+    #[test]
+    fn use_ram() {
+        let instrs = vec![
+            ParsedLine::Instr(FullInstr {
+                instr: Instr::Ldr3,
+                args: Args::RtLabel(R0, "label".to_owned()),
+            }),
+            ParsedLine::Label("label".to_owned()),
+            ParsedLine::String("Hello".to_owned()),
+        ];
+
+        let program = make_program(instrs).unwrap();
+
+        let expected_rom = bitvec![u8, Msb0;
+            0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0,  // ldr r0, [r7, #0]
+        ];
+
+        let expected_ram = bitvec![u8, Msb0;
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 0, 1,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 1, 1, 1, 1,
+        ];
+
+        assert_eq!(
+            program,
+            Program {
+                instrs: expected_rom,
+                ram: expected_ram
+            }
+        );
     }
 }

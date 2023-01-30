@@ -1,5 +1,7 @@
 #[cfg(test)]
 mod tests {
+    use parm_assembler::LogisimProgram;
+
     #[test]
     fn one() {
         let input = "
@@ -27,6 +29,6 @@ mod tests {
 
         let expected = "v2.0 raw\n2000 2101 2214 4288 d4ff e7ff 4252 428a dbff e000 2032 e7f4 1883";
 
-        assert_eq!(expected, output);
+        assert_eq!(output, LogisimProgram::with_rom(expected.to_owned()));
     }
 }

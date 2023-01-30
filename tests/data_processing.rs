@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use parm_assembler::export_to_logisim;
+    use parm_assembler::{export_to_logisim, LogisimProgram};
 
     #[test]
     fn one() {
@@ -22,7 +22,7 @@ mod tests {
 
         let expected = "v2.0 raw\n20aa 21ff b004 9001 9100 b081 9a01";
 
-        assert_eq!(expected, output);
+        assert_eq!(output, LogisimProgram::with_rom(expected.to_owned()));
     }
 
     #[test]
@@ -60,7 +60,7 @@ mod tests {
 
         let expected = "v2.0 raw\n2000 2101 2201 4252 2301 425b 40cb 2401 42cb 42ca 428c 4288 4281";
 
-        assert_eq!(expected, output);
+        assert_eq!(output, LogisimProgram::with_rom(expected.to_owned()));
     }
 
     #[test]
@@ -91,8 +91,7 @@ mod tests {
         let output = export_to_logisim(input).unwrap();
 
         let expected = "v2.0 raw\n2000 2101 22aa 23ff 240f 4314 252d 4355 2613 4396 43d7";
-
-        assert_eq!(expected, output);
+        assert_eq!(output, LogisimProgram::with_rom(expected.to_owned()));
     }
 
     #[test]
@@ -132,6 +131,6 @@ mod tests {
         let expected =
             "v2.0 raw\n2000 2101 22aa 23ff 240f 4264 1064 2505 414d 418d 418d 26aa 41ce 4232";
 
-        assert_eq!(expected, output);
+        assert_eq!(output, LogisimProgram::with_rom(expected.to_owned()));
     }
 }

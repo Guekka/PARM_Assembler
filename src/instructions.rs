@@ -131,7 +131,8 @@ pub(crate) enum Instr {
     // Load / Store
     Str,
     Ldr,
-    Ldrb,
+    Ldr2,
+    Ldr3,
     // Misc
     AddSp,
     SubSp,
@@ -170,7 +171,8 @@ impl Instr {
             Instr::Movs => &["movs"],
             Instr::Str => &["str"],
             Instr::Ldr => &["ldr"],
-            Instr::Ldrb => &["ldrb"],
+            Instr::Ldr2 => &["ldr", "ldrb"],
+            Instr::Ldr3 => &["ldr"],
             Instr::AddSp => &["add"],
             Instr::SubSp => &["sub"],
             Instr::Ands => &["ands"],
@@ -243,7 +245,8 @@ impl Instr {
             // Load / Store
             Str => bitvec![u8, Msb0; 1, 0, 0, 1, 0],
             Ldr => bitvec![u8, Msb0; 1, 0, 0, 1, 1],
-            Ldrb => bitvec![u8, Msb0; 0, 1, 1, 0, 1],
+            Ldr2 => bitvec![u8, Msb0; 0, 1, 1, 0, 1],
+            Ldr3 => Self::bits(&Movs), // implemented as movs
             // Misc
             AddSp => bitvec![u8, Msb0; 1, 0, 1, 1, 0, 0, 0, 0, 0],
             SubSp => bitvec![u8, Msb0; 1, 0, 1, 1, 0, 0, 0, 0, 1],
@@ -345,11 +348,12 @@ impl FullInstr {
     pub(crate) fn complete(
         &self,
         cur_line: usize,
-        labels: &LabelLookup,
+        rom_labels: &LabelLookup,
+        ram_labels: &LabelLookup,
     ) -> Result<FullInstr, CompleteError> {
         let mut copy = self.clone();
         if let Args::Label(ref label) = self.args {
-            if let Some(&addr) = labels.get(label) {
+            if let Some(&addr) = rom_labels.get(label) {
                 copy.args = match self {
                     FullInstr {
                         instr: Instr::B, ..
@@ -360,18 +364,21 @@ impl FullInstr {
                 return Err(CompleteError::LabelNotFound(label.clone()));
             }
         }
-        if let Args::RtLabel(rt, ref label) = self.args {
-            if let Some(&addr) = labels.get(label) {
-                copy.args = match self {
-                    FullInstr {
-                        instr: Instr::Ldr, ..
-                    } => {
-                        let imm = complete_label_imm8(addr, cur_line)?;
-                        let imm8w = Immediate8W::new(imm.0 as u16 * 4).unwrap();
-                        Args::RtSpImm8W(rt, imm8w)
-                    }
-                    _ => return Err(CompleteError::InvalidArg),
-                }
+        if let FullInstr {
+            instr: Instr::Ldr3,
+            args: Args::RtLabel(rt, label),
+        } = self
+        {
+            if let Some(&addr) = ram_labels.get(label) {
+                // so, this is complicated. We are outputting our own ram
+                // we use r7 as the register containing the address of our ram
+                copy.args = Args::RdImm8(
+                    *rt,
+                    Immediate8::new(addr as u16).map_err(|_| CompleteError::JumpTooFar {
+                        label: label.clone(),
+                        distance: addr as i32,
+                    })?,
+                );
             } else {
                 return Err(CompleteError::LabelNotFound(label.clone()));
             }

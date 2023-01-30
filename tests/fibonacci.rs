@@ -1,5 +1,7 @@
 #[cfg(test)]
 mod tests {
+    use parm_assembler::LogisimProgram;
+
     #[test]
     fn caesar() {
         let input = r#"
@@ -144,6 +146,6 @@ run:
 
         let output = parm_assembler::export_to_logisim(input).unwrap();
 
-        assert_eq!(output, expected);
+        assert_eq!(output, LogisimProgram::with_rom(expected.to_owned()));
     }
 }

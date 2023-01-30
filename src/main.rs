@@ -51,7 +51,9 @@ fn process_file(path: &Path) -> Result<(), ExportError> {
     let contents = read_file(&path);
 
     let output = export_to_logisim(&contents)?;
-    write_file(&path.with_extension("bin"), &output);
+
+    write_file(&path.with_extension("rom.bin"), &output.rom);
+    write_file(&path.with_extension("ram.bin"), &output.ram);
 
     Ok(())
 }

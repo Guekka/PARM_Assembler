@@ -30,7 +30,7 @@
 //!         // logisim-evolution expects the output to be in the following format:
 //!         let expected = "v2.0 raw\n2000 2101 2214 4288 d4ff e7ff 4252 428a dbff e000 2032 e7f4 1883";
 //!
-//!         assert_eq!(expected, output);
+//!         assert_eq!(expected, output.rom);
 //! ```
 //!
 //! # Supported instructions
@@ -46,9 +46,10 @@
 //! - The `Instruction`s are then converted into a byte vector using the `bitvec` crate, each one being 16 bits long.
 //! - The byte vector is then converted into a string of hexadecimal numbers.
 
+use bitvec::field::BitField;
 use thiserror::Error;
 
-use crate::instructions::CompleteError;
+use crate::instructions::{BitVec, CompleteError};
 use crate::logic::make_program;
 use crate::parser::parse_lines;
 
@@ -68,6 +69,34 @@ pub enum ExportError {
     ParseError(#[from] parser::ParseError),
 }
 
+#[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone)]
+pub struct LogisimProgram {
+    pub rom: String,
+    pub ram: String,
+}
+
+impl LogisimProgram {
+    pub fn with_rom(rom: String) -> Self {
+        Self {
+            rom,
+            ram: HEADER.trim().to_owned(),
+        }
+    }
+}
+
+fn convert_to_logisim(data: BitVec) -> String {
+    let mut out = HEADER.to_owned();
+    out.reserve(data.len() * 5);
+
+    data.chunks(16)
+        .into_iter()
+        .map(|chunk| chunk.load_be::<u16>())
+        .map(|integer| format!("{integer:04x}"))
+        .fold(out, |acc, i| acc + &i + " ")
+        .trim()
+        .to_owned()
+}
+
 /// Assembles the given lines of assembly code into a binary program in logisim format.
 ///
 /// # Arguments
@@ -75,17 +104,12 @@ pub enum ExportError {
 /// * `input`: A list of ARM instructions, one per line.
 ///
 /// returns: A string containing the binary representation of the program, in logisim format.
-pub fn export_to_logisim(input: &str) -> Result<String, ExportError> {
+pub fn export_to_logisim(input: &str) -> Result<LogisimProgram, ExportError> {
     let parsed = parse_lines(input)?;
     let program = make_program(parsed)?;
 
-    let mut out = HEADER.to_owned();
-    out.reserve(program.len() * 5);
-
-    Ok(program
-        .into_iter()
-        .map(|i| format!("{i:04x}"))
-        .fold(out, |acc, i| acc + &i + " ")
-        .trim()
-        .to_owned())
+    Ok(LogisimProgram {
+        rom: convert_to_logisim(program.instrs),
+        ram: convert_to_logisim(program.ram),
+    })
 }

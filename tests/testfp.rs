@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use parm_assembler::export_to_logisim;
+    use parm_assembler::{export_to_logisim, LogisimProgram};
 
     #[test]
     fn testfp() {
@@ -861,6 +861,6 @@ run:
 
         let actual = export_to_logisim(input).unwrap();
 
-        assert_eq!(actual, expected);
+        assert_eq!(actual, LogisimProgram::with_rom(expected.to_owned()));
     }
 }
