@@ -243,10 +243,7 @@ impl Instr {
             // Load / Store
             Str => bitvec![u8, Msb0; 1, 0, 0, 1, 0],
             Ldr => bitvec![u8, Msb0; 1, 0, 0, 1, 1],
-            // NOTE: This is a hack. Ldrb and ldr are not the same
-            // But in our case, we know ldrb is used for strings
-            // And we pad each string character to word size, so it's fine
-            Ldrb => Self::bits(&Ldr),
+            Ldrb => bitvec![u8, Msb0; 0, 1, 1, 0, 1],
             // Misc
             AddSp => bitvec![u8, Msb0; 1, 0, 1, 1, 0, 0, 0, 0, 0],
             SubSp => bitvec![u8, Msb0; 1, 0, 1, 1, 0, 0, 0, 0, 1],
@@ -293,6 +290,7 @@ pub(crate) enum Args {
     RdRnImm3(Reg, Reg, Immediate3),
     RdRnRm(Reg, Reg, Reg),
     RtSpImm8W(Reg, Immediate8W),
+    RtRnImm5(Reg, Reg, Immediate5),
     RtLabel(Reg, String),
     TwoRegs(Reg, Reg),
 }
@@ -311,11 +309,13 @@ pub enum CompleteError {
     LabelNotFound(String),
     #[error("Label {label} is too far away: {distance}")]
     JumpTooFar { label: String, distance: i32 },
+    #[error("Invalid instr / arg combination")]
+    InvalidArg,
 }
 
 /// Complete the instruction by replacing labels with their actual address
 /// conditional jumps can use 8 bits to encode the distance
-fn complete_bcond(label: usize, cur_line: usize) -> Result<Args, CompleteError> {
+fn complete_label_imm8(label: usize, cur_line: usize) -> Result<Immediate8S, CompleteError> {
     let offset = label as i16 - cur_line as i16 - 3;
 
     let imm = Immediate8S::new(offset).map_err(|_| CompleteError::JumpTooFar {
@@ -323,12 +323,12 @@ fn complete_bcond(label: usize, cur_line: usize) -> Result<Args, CompleteError> 
         distance: offset as i32,
     })?;
 
-    Ok(Args::Immediate8S(imm))
+    Ok(imm)
 }
 
 /// Complete the instruction by replacing labels with their actual address
 /// Unconditional jumps can use 11 bits to encode the distance
-fn complete_buncond(label: usize, cur_line: usize) -> Result<Args, CompleteError> {
+fn complete_label_imm11(label: usize, cur_line: usize) -> Result<Immediate11, CompleteError> {
     let offset = label as i16 - cur_line as i16 - 3;
 
     let imm = Immediate11::new(offset).map_err(|_| CompleteError::JumpTooFar {
@@ -336,7 +336,7 @@ fn complete_buncond(label: usize, cur_line: usize) -> Result<Args, CompleteError
         distance: offset as i32,
     })?;
 
-    Ok(Args::Immediate11(imm))
+    Ok(imm)
 }
 
 impl FullInstr {
@@ -353,8 +353,24 @@ impl FullInstr {
                 copy.args = match self {
                     FullInstr {
                         instr: Instr::B, ..
-                    } => complete_buncond(addr, cur_line)?,
-                    _ => complete_bcond(addr, cur_line)?,
+                    } => Args::Immediate11(complete_label_imm11(addr, cur_line)?),
+                    _ => Args::Immediate8S(complete_label_imm8(addr, cur_line)?),
+                }
+            } else {
+                return Err(CompleteError::LabelNotFound(label.clone()));
+            }
+        }
+        if let Args::RtLabel(rt, ref label) = self.args {
+            if let Some(&addr) = labels.get(label) {
+                copy.args = match self {
+                    FullInstr {
+                        instr: Instr::Ldr, ..
+                    } => {
+                        let imm = complete_label_imm8(addr, cur_line)?;
+                        let imm8w = Immediate8W::new(imm.0 as u16 * 4).unwrap();
+                        Args::RtSpImm8W(rt, imm8w)
+                    }
+                    _ => return Err(CompleteError::InvalidArg),
                 }
             } else {
                 return Err(CompleteError::LabelNotFound(label.clone()));

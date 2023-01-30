@@ -58,6 +58,7 @@ impl ToBinary for Args {
             Args::RdRnImm0(rd, rn) => vec![rn, rd],
             Args::Immediate11(imm11) => vec![imm11],
             Args::RtSpImm8W(rt, imm8w) => vec![rt, imm8w],
+            Args::RtRnImm5(rt, rn, imm5) => vec![imm5, rn, rt],
             Args::Immediate8S(imm8s) => vec![imm8s],
         };
         order

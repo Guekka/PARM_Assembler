@@ -166,6 +166,26 @@ fn parse_rt_sp_imm8(input: &str) -> IResult<&str, Args, Err> {
     )(input)
 }
 
+fn parse_rt_rn_imm5(input: &str) -> IResult<&str, Args, Err> {
+    let inner_braces = pair(
+        preceded(parse_separator, Reg::parse),
+        opt(preceded(parse_separator, Immediate::parse)),
+    );
+
+    map(
+        pair(
+            preceded(parse_separator, Reg::parse),
+            preceded(
+                parse_separator,
+                delimited(char('['), inner_braces, char(']')),
+            ),
+        ),
+        |(rt, (rn, imm5))| {
+            Args::RtRnImm5(rt, rn, imm5.unwrap_or_else(|| Immediate::new(0).unwrap()))
+        },
+    )(input)
+}
+
 fn parse_label(input: &str) -> IResult<&str, &str, Err> {
     preceded(
         opt(char('.')),
@@ -232,7 +252,7 @@ const INSTRUCTIONS: &[(Instr, ParseArgs); 50] = &[
     (Instr::Str, parse_rt_sp_imm8),
     (Instr::Ldr, parse_rt_sp_imm8),
     (Instr::Ldr, parse_rt_label),
-    (Instr::Ldrb, parse_rt_sp_imm8),
+    (Instr::Ldrb, parse_rt_rn_imm5),
     (Instr::AddSp, parse_sp_imm7),
     (Instr::SubSp, parse_sp_imm7),
     (Instr::Beq, parse_label_args),
@@ -339,13 +359,14 @@ pub(crate) enum ParsedLine {
 /// A line can be an instruction, a label or a comment.
 /// If the line is not an instruction or a label, it is ignored.
 fn parse_line(input: &str) -> IResult<&str, ParsedLine, Err> {
+    println!("read: {}", input.chars().take(100).collect::<String>());
     if input.is_empty() {
         return Err(nom::Err::Error(nom::error::ParseError::from_error_kind(
             input,
             ErrorKind::Eof,
         )));
     }
-    terminated(
+    let r = terminated(
         alt((
             map(preceded(space0, parse_label_definition), |s| {
                 ParsedLine::Label(s.to_owned())
@@ -362,7 +383,10 @@ fn parse_line(input: &str) -> IResult<&str, ParsedLine, Err> {
             ),
         )),
         opt(parse_end_of_line),
-    )(input)
+    )(input);
+
+    println!("{r:#?}");
+    r
 }
 
 #[derive(Error, Debug)]
@@ -749,6 +773,20 @@ run:
         let expected = ParsedLine::Instr(FullInstr {
             instr: Instr::Ldr,
             args: Args::RtLabel(R0, "LCPI0_0".to_owned()),
+        });
+
+        let actual = parse_line(input).unwrap();
+
+        assert_eq!(actual.1, expected);
+    }
+
+    #[test]
+    fn ldrb() {
+        let input = "ldrb r0, [r1, #1]";
+
+        let expected = ParsedLine::Instr(FullInstr {
+            instr: Instr::Ldrb,
+            args: Args::RtRnImm5(Reg::R0, Reg::R1, Immediate5::new(1).unwrap()),
         });
 
         let actual = parse_line(input).unwrap();

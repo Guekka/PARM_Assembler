@@ -2,7 +2,7 @@ use bitvec::field::BitField;
 use thiserror::Error;
 
 use crate::emitter::ToBinary;
-use crate::instructions::{BitVec, CompleteError, FullInstr, LabelLookup};
+use crate::instructions::{Args, BitVec, CompleteError, FullInstr, LabelLookup};
 use crate::parser::ParsedLine;
 
 /// Maps labels to their addresses.
@@ -13,6 +13,10 @@ fn calculate_labels(instrs: &[ParsedLine]) -> LabelLookup {
         .enumerate()
         .filter_map(|(i, l)| match l {
             ParsedLine::Label(l) => Some((i, l.to_owned())),
+            ParsedLine::Instr(FullInstr {
+                args: Args::RtLabel(_, label),
+                ..
+            }) => Some((i, label.clone())),
             _ => None,
         })
         .enumerate()
@@ -73,7 +77,6 @@ pub(crate) fn make_program(instrs: Vec<ParsedLine>) -> Result<Vec<u16>, Complete
         .map(|line| line.to_binary())
         .flat_map(|line| {
             let chunks = line.chunks_exact(16);
-            assert!(chunks.remainder().is_empty());
             // logisim uses big endian
             chunks.map(|c| c.load_be::<u16>()).collect::<Vec<_>>()
         })
