@@ -187,14 +187,14 @@ fn parse_rt_rn_imm5(input: &str) -> IResult<&str, Args, Err> {
 }
 
 fn parse_label(input: &str) -> IResult<&str, &str, Err> {
-    preceded(
-        opt(char('.')),
-        take_while(|c: char| c.is_alphanumeric() || c == '_'),
-    )(input)
+    take_till(|c: char| c.is_whitespace())(input)
 }
 
 fn parse_label_definition(input: &str) -> IResult<&str, &str, Err> {
-    terminated(parse_label, char(':'))(input)
+    terminated(
+        take_while(|c: char| c.is_alphanumeric() || c == '.' || c == '_' || c == '$'),
+        char(':'),
+    )(input)
 }
 
 fn parse_label_args(input: &str) -> IResult<&str, Args, Err> {
@@ -572,7 +572,7 @@ mod tests {
     #[test]
     fn parse_label() {
         let input = ".label:";
-        let expected = ParsedLine::Label("label".to_owned());
+        let expected = ParsedLine::Label(".label".to_owned());
         let res = parse_line(input).unwrap();
         assert_eq!(expected, res.1);
     }
@@ -580,7 +580,15 @@ mod tests {
     #[test]
     fn parse_label_with_comment() {
         let input = ".label: @ comment";
-        let expected = ParsedLine::Label("label".to_owned());
+        let expected = ParsedLine::Label(".label".to_owned());
+        let res = parse_line(input).unwrap();
+        assert_eq!(expected, res.1);
+    }
+
+    #[test]
+    fn parse_label_with_dots() {
+        let input = ".label.str.1:";
+        let expected = ParsedLine::Label(".label.str.1".to_owned());
         let res = parse_line(input).unwrap();
         assert_eq!(expected, res.1);
     }
@@ -597,7 +605,7 @@ mod tests {
             b .label2
             ";
         let expected = &[
-            ParsedLine::Label("label".to_owned()),
+            ParsedLine::Label(".label".to_owned()),
             ParsedLine::Instr(FullInstr {
                 instr: Instr::Lsls,
                 args: Args::RdRmImm5(Reg::R0, Reg::R1, Immediate5::new(4).unwrap()),
@@ -606,14 +614,14 @@ mod tests {
                 instr: Instr::Lsrs,
                 args: Args::RdRmImm5(Reg::R2, Reg::R5, Immediate5::new(9).unwrap()),
             }),
-            ParsedLine::Label("label2".to_owned()),
+            ParsedLine::Label(".label2".to_owned()),
             ParsedLine::Instr(FullInstr {
                 instr: Instr::Asrs,
                 args: Args::RdRmImm5(Reg::R3, Reg::R7, Immediate5::new(15).unwrap()),
             }),
             ParsedLine::Instr(FullInstr {
                 instr: Instr::B,
-                args: Args::Label("label2".to_owned()),
+                args: Args::Label(".label2".to_owned()),
             }),
         ];
         let res = parse_lines(input).unwrap();
@@ -625,7 +633,7 @@ mod tests {
         let input = "b .label";
         let expected = ParsedLine::Instr(FullInstr {
             instr: Instr::B,
-            args: Args::Label("label".to_owned()),
+            args: Args::Label(".label".to_owned()),
         });
         let res = parse_line(input).unwrap();
         assert_eq!(expected, res.1);
@@ -775,7 +783,7 @@ run:
 
         let expected = ParsedLine::Instr(FullInstr {
             instr: Instr::Ldr3,
-            args: Args::RtLabel(R0, "LCPI0_0".to_owned()),
+            args: Args::RtLabel(R0, ".LCPI0_0".to_owned()),
         });
 
         let actual = parse_line(input).unwrap();
