@@ -1,5 +1,5 @@
 use nom::bytes::complete::{tag_no_case, take_till, take_while};
-use nom::character::complete::{char, line_ending, multispace1, space0};
+use nom::character::complete::{char, line_ending, multispace1, space0, space1};
 use nom::combinator::{eof, map_opt, map_res, value};
 use nom::error::{convert_error, ErrorKind, VerboseError};
 use nom::multi::many_till;
@@ -347,11 +347,16 @@ fn parse_push(input: &str) -> IResult<&str, (), Err> {
     )(input)
 }
 
+fn parse_long(input: &str) -> IResult<&str, &str, Err> {
+    preceded(pair(tag_no_case(".long"), space1), parse_label)(input)
+}
+
 #[derive(PartialEq, Debug, Clone)]
 pub(crate) enum ParsedLine {
     Instr(FullInstr),
     Label(String),
     String(String),
+    Long(String),
     None,
 }
 
@@ -373,6 +378,9 @@ fn parse_line(input: &str) -> IResult<&str, ParsedLine, Err> {
             map(preceded(space0, parse_instr), ParsedLine::Instr),
             map(preceded(space0, parse_string), ParsedLine::String),
             value(ParsedLine::None, parse_push),
+            map(preceded(space0, parse_long), |str| {
+                ParsedLine::Long(str.to_owned())
+            }),
             value(ParsedLine::None, parse_comment),
             value(ParsedLine::None, multispace1),
             // If something starts with a dot and is not a label, it's probably a directive we can ignore
@@ -799,6 +807,17 @@ run:
             instr: Instr::Ldr2,
             args: Args::RtRnImm5(Reg::R0, Reg::R1, Immediate5::new(1).unwrap()),
         });
+
+        let actual = parse_line(input).unwrap();
+
+        assert_eq!(actual.1, expected);
+    }
+
+    #[test]
+    fn long() {
+        let input = ".long .L0";
+
+        let expected = ParsedLine::Long(".L0".to_owned());
 
         let actual = parse_line(input).unwrap();
 

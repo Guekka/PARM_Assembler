@@ -2,29 +2,41 @@ use std::mem;
 use thiserror::Error;
 
 use crate::emitter::ToBinary;
+use crate::instructions;
 use crate::instructions::{BitVec, CompleteError, FullInstr, LabelLookup};
 use crate::parser::ParsedLine;
 
 /// Maps labels to their addresses.
 /// The address of a label is the address of the instruction after the label.
 fn calculate_labels(instrs: &[ParsedLine], ram: &[ParsedLine]) -> (LabelLookup, LabelLookup) {
-    fn calculate(list: &[ParsedLine]) -> LabelLookup {
-        list.iter()
-            .enumerate()
-            .filter_map(|(i, l)| match l {
-                ParsedLine::Label(l) => Some((i, l.to_owned())),
-                _ => None,
-            })
-            .enumerate()
-            // this is a bit tricky: labels do not have an address on their own
-            // so we need to substract current label index
-            .map(|(label_i, (i, l))| (l, i - label_i))
-            .collect()
+    let rom_labels = instrs
+        .iter()
+        .enumerate()
+        .filter_map(|(i, l)| match l {
+            ParsedLine::Label(l) => Some((i, l.to_owned())),
+            _ => None,
+        })
+        .enumerate()
+        // this is a bit tricky: labels do not have an address on their own
+        // so we need to substract current label index
+        .map(|(label_i, (i, l))| (l, i - label_i))
+        .collect();
+
+    // RAM labels are a bit different: they need to account for string size
+    let mut ram_labels = LabelLookup::new();
+    let mut prev_string_end = 0;
+
+    for line in ram.iter() {
+        match line {
+            ParsedLine::Label(label) => {
+                ram_labels.insert(label.to_owned(), prev_string_end);
+            }
+            ParsedLine::String(string) => {
+                prev_string_end += string.len();
+            }
+            _ => unreachable!("RAM should only contain labels and strings"),
+        }
     }
-
-    let rom_labels = calculate(instrs);
-    let ram_labels = calculate(ram);
-
     (rom_labels, ram_labels)
 }
 
@@ -69,10 +81,49 @@ fn extract_ram(instrs: &mut Vec<ParsedLine>) -> Vec<ParsedLine> {
     ram
 }
 
+/// Replaces ldr rt, label with ldr rt, another label
+/// Used for cases like:
+/// ```asm
+/// label:
+///    .long another_label
+/// ```
+// TODO: this is a bit hacky, maybe there is a better way to do this
+fn collapse_long(instrs: &mut Vec<ParsedLine>) {
+    let mut to_remove = Vec::new();
+
+    for i in 1..instrs.len() {
+        // if we have a long...
+        if let ParsedLine::Long(long_label) = instrs[i].clone() {
+            // ...and a label before it...
+            if let ParsedLine::Label(label) = instrs[i - 1].clone() {
+                // ...replace all ldr rt, label with ldr rt, long_label
+                for instr in instrs.iter_mut() {
+                    if let ParsedLine::Instr(FullInstr {
+                        instr: instructions::Instr::Ldr3,
+                        args: instructions::Args::RtLabel(_, ldr_label),
+                    }) = instr
+                    {
+                        if ldr_label == &label {
+                            *ldr_label = long_label.clone();
+                        }
+                    }
+                }
+                to_remove.push(i);
+            }
+        }
+    }
+
+    for i in to_remove.iter().rev() {
+        instrs.remove(*i);
+    }
+}
+
 fn process_lines(
     mut instrs: Vec<ParsedLine>,
     ram: &[ParsedLine],
 ) -> Result<(Vec<FullInstr>, Vec<String>), CompleteError> {
+    collapse_long(&mut instrs);
+
     let (rom_labels, ram_labels) = calculate_labels(&instrs, ram);
 
     let only_instrs = instrs
@@ -215,6 +266,7 @@ mod tests {
             }),
             ParsedLine::Label("label".to_owned()),
             ParsedLine::String("Hello".to_owned()),
+            ParsedLine::Label("label2".to_owned()),
         ];
 
         let program = make_program(instrs).unwrap();
