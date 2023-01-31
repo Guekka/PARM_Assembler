@@ -220,7 +220,7 @@ mod tests {
         let program = make_program(instrs).unwrap();
 
         let expected_rom = bitvec![u8, Msb0;
-            0, 1, 1, 0, 1, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0,  // ldr r0, [r7, #0]
+            0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  // movs r0, #0
         ];
 
         let expected_ram = bitvec![u8, Msb0;

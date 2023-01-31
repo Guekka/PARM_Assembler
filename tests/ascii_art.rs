@@ -100,7 +100,7 @@ run:
         let output = export_to_logisim(input).unwrap();
 
         let expected_rom =
-            "v2.0 raw\nb081 b0ff b0f1 6838 6801 9100 6841 9100 6881 9100 68c0 9000 e7fd";
+            "v2.0 raw\nb081 b0ff b0f1 2000 6801 9100 6841 9100 6881 9100 68c0 9000 e7fd";
 
         let expected_ram =
             "v2.0 raw\n0020 0020 005f 005f 005f 005f 005f 0020 0020 0020 0020 0020 0020 0020 0020 \
