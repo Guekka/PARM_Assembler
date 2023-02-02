@@ -41,7 +41,7 @@ fn calculate_labels(instrs: &[ParsedLine], ram: &[ParsedLine]) -> (LabelLookup, 
 }
 
 #[derive(Error, Debug)]
-pub(crate) enum ProgramError {
+pub enum ProgramError {
     #[error("Could not complete instruction: {0}")]
     CompleteError(#[from] CompleteError),
 }
@@ -149,12 +149,12 @@ fn process_lines(
 }
 
 #[derive(Debug, Ord, PartialOrd, Eq, PartialEq, Clone)]
-pub(crate) struct Program {
-    pub(crate) instrs: BitVec,
-    pub(crate) ram: BitVec,
+pub struct Program {
+    pub instrs: BitVec,
+    pub ram: BitVec,
 }
 
-pub(crate) fn make_program(mut instrs: Vec<ParsedLine>) -> Result<Program, CompleteError> {
+pub fn make_program(mut instrs: Vec<ParsedLine>) -> Result<Program, CompleteError> {
     let ram = extract_ram(&mut instrs);
 
     let (rom, ram) = process_lines(instrs, &ram)?;

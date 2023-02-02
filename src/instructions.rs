@@ -6,7 +6,7 @@ use thiserror::Error;
 
 #[derive(PartialEq, Debug, Copy, Clone)]
 #[repr(u8)]
-pub(crate) enum Reg {
+pub enum Reg {
     R0 = 0,
     R1 = 1,
     R2 = 2,
@@ -46,13 +46,13 @@ impl TryFrom<u8> for Reg {
 }
 
 #[derive(Error, Debug)]
-pub(crate) enum ImmediateError {
+pub enum ImmediateError {
     #[error("Immediate value {0} is too large")]
     TooLarge(i32),
 }
 
 #[derive(PartialEq, Debug, Copy, Clone)]
-pub(crate) struct Immediate<const N: u8, const WIDE: bool>(pub u16);
+pub struct Immediate<const N: u8, const WIDE: bool>(pub u16);
 
 impl<const N: u8, const WIDE: bool> Immediate<N, WIDE> {
     const fn lower_bound() -> u16 {
@@ -64,7 +64,7 @@ impl<const N: u8, const WIDE: bool> Immediate<N, WIDE> {
         1 << (N + offset)
     }
 
-    pub(crate) fn new(val: u16) -> Result<Self, ImmediateError> {
+    pub fn new(val: u16) -> Result<Self, ImmediateError> {
         if val >= Self::lower_bound() && val <= Self::upper_bound() {
             Ok(Self(if WIDE { val / 4 } else { val }))
         } else {
@@ -98,7 +98,7 @@ impl<const N: u8, const WIDE: bool> SignedImmediate<N, WIDE> {
 
 /// List of all possible instructions
 #[derive(PartialEq, Debug, Copy, Clone)]
-pub(crate) enum Instr {
+pub enum Instr {
     // Shift add sub move
     Lsls,
     Lsrs,
@@ -154,7 +154,7 @@ pub(crate) enum Instr {
     B,
 }
 
-pub(crate) type BitVec = bitvec::prelude::BitVec<u8, Msb0>;
+pub type BitVec = bitvec::prelude::BitVec<u8, Msb0>;
 
 impl Instr {
     pub(crate) fn text_instruction(&self) -> &'static [&'static str] {
@@ -270,19 +270,19 @@ impl Instr {
     }
 }
 
-pub(crate) type Immediate3 = Immediate<3, false>;
-pub(crate) type Immediate5 = Immediate<5, false>;
-pub(crate) type Immediate8 = Immediate<8, false>;
-pub(crate) type Immediate11 = SignedImmediate<11, false>;
+pub type Immediate3 = Immediate<3, false>;
+pub type Immediate5 = Immediate<5, false>;
+pub type Immediate8 = Immediate<8, false>;
+pub type Immediate11 = SignedImmediate<11, false>;
 
-pub(crate) type Immediate8S = SignedImmediate<8, false>;
+pub type Immediate8S = SignedImmediate<8, false>;
 
-pub(crate) type Immediate7W = Immediate<7, true>;
-pub(crate) type Immediate8W = Immediate<8, true>;
+pub type Immediate7W = Immediate<7, true>;
+pub type Immediate8W = Immediate<8, true>;
 
 /// List of all possible instructions arguments
 #[derive(PartialEq, Debug, Clone)]
-pub(crate) enum Args {
+pub enum Args {
     Immediate11(Immediate11),
     Immediate7W(Immediate7W),
     Immediate8S(Immediate8S),
@@ -299,12 +299,12 @@ pub(crate) enum Args {
 }
 
 #[derive(PartialEq, Debug, Clone)]
-pub(crate) struct FullInstr {
+pub struct FullInstr {
     pub instr: Instr,
     pub args: Args,
 }
 
-pub(crate) type LabelLookup = HashMap<String, usize>;
+pub type LabelLookup = HashMap<String, usize>;
 
 #[derive(Error, Debug)]
 pub enum CompleteError {
@@ -345,7 +345,7 @@ fn complete_label_imm11(label: usize, cur_line: usize) -> Result<Immediate11, Co
 impl FullInstr {
     /// Complete the instruction by replacing labels with their actual address
     /// and checking that the jump is not too far away
-    pub(crate) fn complete(
+    pub fn complete(
         &self,
         cur_line: usize,
         rom_labels: &LabelLookup,

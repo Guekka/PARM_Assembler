@@ -50,8 +50,8 @@ use bitvec::field::BitField;
 use thiserror::Error;
 
 use crate::instructions::{BitVec, CompleteError};
-use crate::logic::make_program;
-use crate::parser::parse_lines;
+pub use crate::logic::make_program;
+pub use crate::parser::parse_lines;
 
 mod emitter;
 mod instructions;
@@ -59,7 +59,7 @@ mod logic;
 mod parser;
 mod utils;
 
-const HEADER: &str = "v2.0 raw\n";
+pub const LOGISIM_HEADER: &str = "v2.0 raw\n";
 
 #[derive(Error, Debug)]
 pub enum ExportError {
@@ -79,13 +79,13 @@ impl LogisimProgram {
     pub fn with_rom(rom: String) -> Self {
         Self {
             rom,
-            ram: HEADER.trim().to_owned(),
+            ram: LOGISIM_HEADER.trim().to_owned(),
         }
     }
 }
 
 fn convert_to_logisim(data: BitVec) -> String {
-    let mut out = HEADER.to_owned();
+    let mut out = LOGISIM_HEADER.to_owned();
     out.reserve(data.len() * 5);
 
     data.chunks(16)

@@ -18,7 +18,7 @@ use thiserror::Error;
 use crate::instructions::{Args, FullInstr, Immediate, Immediate8, Instr, Reg};
 use crate::utils::{unescape_string, Appliable};
 
-pub(crate) type Err<'a> = VerboseError<&'a str>;
+pub type Err<'a> = VerboseError<&'a str>;
 
 trait Parseable: Sized {
     fn parse(input: &str) -> IResult<&str, Self, Err>;
@@ -352,7 +352,7 @@ fn parse_long(input: &str) -> IResult<&str, &str, Err> {
 }
 
 #[derive(PartialEq, Debug, Clone)]
-pub(crate) enum ParsedLine {
+pub enum ParsedLine {
     Instr(FullInstr),
     Label(String),
     String(String),
@@ -453,7 +453,7 @@ fn preprocess(input: &str) -> String {
     }
     output
 }
-pub(crate) fn parse_lines(input: &str) -> Result<Vec<ParsedLine>, ParseError> {
+pub fn parse_lines(input: &str) -> Result<Vec<ParsedLine>, ParseError> {
     let input = preprocess(input);
 
     let res = many_till(parse_line, eof)(input.as_ref())
